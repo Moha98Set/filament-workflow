@@ -1,0 +1,343 @@
+<?php
+
+namespace App\Filament\Resources;
+
+use App\Filament\Resources\DeviceResource\Pages;
+use App\Models\Device;
+use App\Models\Registration;
+use Filament\Forms;
+use Filament\Forms\Form;
+use Filament\Resources\Resource;
+use Filament\Tables;
+use Filament\Tables\Table;
+use Filament\Notifications\Notification;
+
+class DeviceResource extends Resource
+{
+    protected static ?string $model = Device::class;
+
+    protected static ?string $navigationIcon = 'heroicon-o-cpu-chip';
+    
+    protected static ?string $navigationLabel = 'مدیریت دستگاه‌ها';
+    
+    protected static ?string $navigationGroup = 'مدیریت';
+    
+    protected static ?int $navigationSort = 2;
+
+    public static function canViewAny(): bool
+    {
+        $user = auth()->user();
+        
+        if ($user->hasRole(['super_admin', 'admin'])) {
+            return true;
+        }
+        
+        // اپراتور فنی می‌تواند دستگاه‌ها را ببیند
+        return $user->can('view_devices') || $user->operator_tag === 'کارشناس فنی';
+    }
+
+    public static function form(Form $form): Form
+    {
+        return $form
+            ->schema([
+                Forms\Components\Section::make('اطلاعات دستگاه')
+                    ->schema([
+                        Forms\Components\TextInput::make('code')
+                            ->label('کد دستگاه')
+                            ->required()
+                            ->unique(ignoreRecord: true)
+                            ->maxLength(100)
+                            ->placeholder('مثال: JK-2026-001')
+                            ->helperText('کد یکتای دستگاه'),
+                        
+                        Forms\Components\TextInput::make('serial_number')
+                            ->label('سریال دستگاه')
+                            ->required()
+                            ->unique(ignoreRecord: true)
+                            ->maxLength(100)
+                            ->placeholder('مثال: SN-123456789'),
+                        
+                        Forms\Components\Select::make('type')
+                            ->label('نوع دستگاه')
+                            ->options([
+                                'GPS Tracker' => 'GPS Tracker',
+                                'Fleet Management' => 'Fleet Management',
+                                'Temperature Sensor' => 'Temperature Sensor',
+                                'Fuel Monitor' => 'Fuel Monitor',
+                                'Speed Limiter' => 'Speed Limiter',
+                            ])
+                            ->required()
+                            ->searchable()
+                            ->native(false),
+                        
+                        Forms\Components\DatePicker::make('manufacturing_date')
+                            ->label('تاریخ تولید')
+                            ->nullable()
+                            ->maxDate(now()),
+                    ])
+                    ->columns(2),
+
+                Forms\Components\Section::make('وضعیت')
+                    ->schema([
+                        Forms\Components\Select::make('status')
+                            ->label('وضعیت دستگاه')
+                            ->options([
+                                'available' => '✅ موجود',
+                                'assigned' => '📋 اختصاص داده شده',
+                                'installed' => '✅ نصب شده',
+                                'faulty' => '⚠️ معیوب',
+                                'maintenance' => '🔧 در تعمیر',
+                                'returned' => '↩️ مرجوع شده',
+                            ])
+                            ->required()
+                            ->native(false)
+                            ->default('available'),
+                        
+                        Forms\Components\Textarea::make('notes')
+                            ->label('یادداشت')
+                            ->rows(3)
+                            ->placeholder('توضیحات درباره دستگاه...'),
+                    ])
+                    ->columns(1),
+
+                Forms\Components\Section::make('مرجوعی')
+                    ->schema([
+                        Forms\Components\Toggle::make('is_returned')
+                            ->label('مرجوع شده')
+                            ->live(),
+                        
+                        Forms\Components\Textarea::make('return_reason')
+                            ->label('دلیل مرجوعی')
+                            ->rows(3)
+                            ->visible(fn (Forms\Get $get) => $get('is_returned')),
+                    ])
+                    ->visible(fn (string $operation) => $operation === 'edit')
+                    ->columns(1),
+            ]);
+    }
+
+    public static function table(Table $table): Table
+    {
+        return $table
+            ->columns([
+                Tables\Columns\TextColumn::make('code')
+                    ->label('کد دستگاه')
+                    ->searchable()
+                    ->sortable()
+                    ->copyable()
+                    ->icon('heroicon-o-qr-code')
+                    ->weight('bold'),
+                
+                Tables\Columns\TextColumn::make('type')
+                    ->label('نوع')
+                    ->searchable()
+                    ->sortable()
+                    ->badge()
+                    ->color('info'),
+                
+                Tables\Columns\TextColumn::make('serial_number')
+                    ->label('سریال')
+                    ->searchable()
+                    ->toggleable()
+                    ->copyable(),
+                
+                Tables\Columns\BadgeColumn::make('status')
+                    ->label('وضعیت')
+                    ->formatStateUsing(fn (string $state): string => match ($state) {
+                        'available' => 'موجود',
+                        'assigned' => 'اختصاص داده شده',
+                        'installed' => 'نصب شده',
+                        'faulty' => 'معیوب',
+                        'maintenance' => 'در تعمیر',
+                        'returned' => 'مرجوع شده',
+                        default => $state,
+                    })
+                    ->colors([
+                        'success' => fn ($state) => in_array($state, ['available', 'installed']),
+                        'info' => 'assigned',
+                        'danger' => 'faulty',
+                        'warning' => 'maintenance',
+                        'secondary' => 'returned',
+                    ])
+                    ->icons([
+                        'heroicon-o-check-circle' => fn ($state) => in_array($state, ['available', 'installed']),
+                        'heroicon-o-clipboard-document-list' => 'assigned',
+                        'heroicon-o-exclamation-triangle' => 'faulty',
+                        'heroicon-o-wrench' => 'maintenance',
+                        'heroicon-o-arrow-uturn-left' => 'returned',
+                    ]),
+                
+                Tables\Columns\TextColumn::make('assignedToRegistration.full_name')
+                    ->label('اختصاص به')
+                    ->searchable()
+                    ->toggleable()
+                    ->default('—')
+                    ->icon('heroicon-o-user'),
+                
+                Tables\Columns\IconColumn::make('is_returned')
+                    ->label('مرجوعی')
+                    ->boolean()
+                    ->toggleable(),
+                
+                Tables\Columns\TextColumn::make('manufacturing_date')
+                    ->label('تاریخ تولید')
+                    ->date('Y/m/d')
+                    ->toggleable()
+                    ->sortable(),
+                
+                Tables\Columns\TextColumn::make('creator.name')
+                    ->label('ثبت توسط')
+                    ->toggleable()
+                    ->default('—'),
+                
+                Tables\Columns\TextColumn::make('created_at')
+                    ->label('تاریخ ثبت')
+                    ->dateTime('Y/m/d H:i')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+            ])
+            ->filters([
+                Tables\Filters\SelectFilter::make('status')
+                    ->label('وضعیت')
+                    ->options([
+                        'available' => 'موجود',
+                        'assigned' => 'اختصاص داده شده',
+                        'installed' => 'نصب شده',
+                        'faulty' => 'معیوب',
+                        'maintenance' => 'در تعمیر',
+                        'returned' => 'مرجوع شده',
+                    ]),
+                
+                Tables\Filters\SelectFilter::make('type')
+                    ->label('نوع دستگاه')
+                    ->options([
+                        'GPS Tracker' => 'GPS Tracker',
+                        'Fleet Management' => 'Fleet Management',
+                        'Temperature Sensor' => 'Temperature Sensor',
+                        'Fuel Monitor' => 'Fuel Monitor',
+                        'Speed Limiter' => 'Speed Limiter',
+                    ]),
+                
+                Tables\Filters\TernaryFilter::make('is_returned')
+                    ->label('مرجوعی')
+                    ->placeholder('همه')
+                    ->trueLabel('فقط مرجوعی‌ها')
+                    ->falseLabel('غیر مرجوعی'),
+            ])            
+            ->actions([
+                Tables\Actions\Action::make('assign_to_person')
+                    ->label('اختصاص به متقاضی')
+                    ->icon('heroicon-o-user-plus')
+                    ->color('success')
+                    ->visible(fn (Device $record) => $record->status === 'available')
+                    ->form([
+                        Forms\Components\Select::make('registration_id')
+                            ->label('انتخاب متقاضی')
+                            ->options(
+                                Registration::where('status', 'financial_approved')
+                                    ->whereNull('assigned_device_id')
+                                    ->pluck('full_name', 'id')
+                            )
+                            ->searchable()
+                            ->required()
+                            ->helperText('فقط متقاضیان تایید مالی شده نمایش داده می‌شوند'),
+                    ])
+                    ->action(function (Device $record, array $data) {
+                        $registration = Registration::find($data['registration_id']);
+                        
+                        // لینک دوطرفه
+                        $record->update([
+                            'status' => 'assigned',
+                            'assigned_to_registration_id' => $registration->id,
+                        ]);
+                        
+                        $registration->update([
+                            'status' => 'device_assigned',
+                            'assigned_device_id' => $record->id,
+                            'device_assigned_by' => auth()->id(),
+                            'device_assigned_at' => now(),
+                        ]);
+                        
+                        Notification::make()
+                            ->success()
+                            ->title('دستگاه اختصاص داده شد')
+                            ->body("دستگاه {$record->code} به {$registration->full_name} اختصاص یافت")
+                            ->send();
+                    }),
+
+                // اکشن تغییر وضعیت
+                Tables\Actions\Action::make('change_status')
+                    ->label('تغییر وضعیت')
+                    ->icon('heroicon-o-arrow-path')
+                    ->color('warning')
+                    ->form([
+                        Forms\Components\Select::make('status')
+                            ->label('وضعیت جدید')
+                            ->options([
+                                'available' => '✅ موجود',
+                                'faulty' => '⚠️ معیوب',
+                                'maintenance' => '🔧 در تعمیر',
+                                'returned' => '↩️ مرجوع شده',
+                            ])
+                            ->required(),
+                        
+                        Forms\Components\Textarea::make('note')
+                            ->label('یادداشت')
+                            ->rows(3),
+                    ])
+                    ->action(function (Device $record, array $data) {
+                        $record->update([
+                            'status' => $data['status'],
+                            'notes' => $data['note'] ?? $record->notes,
+                        ]);
+                        
+                        Notification::make()
+                            ->success()
+                            ->title('وضعیت تغییر کرد')
+                            ->body("وضعیت دستگاه {$record->code} به‌روزرسانی شد")
+                            ->send();
+                    }),
+                
+                Tables\Actions\EditAction::make(),
+                Tables\Actions\DeleteAction::make(),
+            ])
+            ->bulkActions([
+                Tables\Actions\BulkActionGroup::make([
+                    Tables\Actions\DeleteBulkAction::make(),
+                ]),
+            ])
+            ->defaultSort('created_at', 'desc')
+            ->emptyStateHeading('هیچ دستگاهی ثبت نشده')
+            ->emptyStateDescription('برای شروع، دستگاه جدید اضافه کنید')
+            ->emptyStateIcon('heroicon-o-cpu-chip')
+            ->emptyStateActions([
+                Tables\Actions\CreateAction::make()
+                    ->label('ثبت دستگاه جدید')
+                    ->icon('heroicon-o-plus'),
+            ]);
+    }
+
+    public static function getRelations(): array
+    {
+        return [];
+    }
+
+    public static function getPages(): array
+    {
+        return [
+            'index' => Pages\ListDevices::route('/'),
+            'create' => Pages\CreateDevice::route('/create'),
+            'edit' => Pages\EditDevice::route('/{record}/edit'),
+        ];
+    }
+
+    public static function getNavigationBadge(): ?string
+    {
+        return static::getModel()::where('status', 'available')->count() ?: null;
+    }
+
+    public static function getNavigationBadgeColor(): ?string
+    {
+        return 'success';
+    }
+}
