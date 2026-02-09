@@ -62,4 +62,12 @@ Route::get('/register-client', function () {
 
 Route::post('/register-client', [ClientRegistrationController::class, 'store'])->name('client.store');
 
+Route::get('/test-auth', function () {
+    if (auth()->check()) {
+        $user = auth()->user();
+        return 'Logged in as: ' . $user->email . '<br>Status: ' . $user->status . '<br>Can access panel: ' . ($user->canAccessPanel(app(\Filament\Panel::class)) ? 'YES' : 'NO');
+    }
+    return 'Not logged in';
+});
+
 require __DIR__.'/auth.php';

@@ -1,0 +1,7 @@
+[09-Feb-2026 21:28:40 UTC] PHP Fatal error:  Uncaught RuntimeException: Composer detected issues in your platform: Your Composer dependencies require a PHP version ">= 8.2.0". You are running 8.1.33. in /home/hgchviyn/mmd.viramap.ir/vendor/composer/platform_check.php:22
+Stack trace:
+#0 /home/hgchviyn/mmd.viramap.ir/vendor/composer/autoload_real.php(25): require()
+#1 /home/hgchviyn/mmd.viramap.ir/vendor/autoload.php(22): ComposerAutoloaderInit737a97e5450dea96bd4b43bcd5c4d1d8::getLoader()
+#2 /home/hgchviyn/mmd.viramap.ir/artisan(10): require('/home/hgchviyn/...')
+#3 {main}
+  thrown in /home/hgchviyn/mmd.viramap.ir/vendor/composer/platform_check.php on line 22

@@ -2,13 +2,15 @@
 
 namespace App\Models;
 
+use Filament\Models\Contracts\FilamentUser;
+use Filament\Panel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Spatie\Permission\Traits\HasRoles;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class User extends Authenticatable
+class User extends Authenticatable implements FilamentUser
 {
     use HasFactory, Notifiable, HasRoles;
 
@@ -103,6 +105,10 @@ class User extends Authenticatable
      * Override متد Authenticatable برای جلوگیری از ورود کاربران غیرفعال
      */
     public function canLogin(): bool
+    {
+        return $this->status === 'active';
+    }
+    public function canAccessPanel(Panel $panel): bool
     {
         return $this->status === 'active';
     }
