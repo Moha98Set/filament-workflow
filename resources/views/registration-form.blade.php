@@ -477,10 +477,40 @@
             <div class="progress-fill" id="progressFill"></div>
         </div>
 
-        <form id="registrationForm" method="POST" action="{{ route('client.register.submit') }}" enctype="multipart/form-data">
+        <form method="POST" action="{{ route('client.register.submit') }}" enctype="multipart/form-data">
             @csrf
-            <input type="hidden" name="province" id="provinceInput">
-            <input type="hidden" name="organization" id="organizationInput">
+
+            {{-- نمایش سازمان و استان انتخاب شده --}}
+            <div class="bg-gradient-to-r from-purple-50 to-blue-50 border-r-4 border-purple-500 p-6 rounded-lg mb-8 shadow-md">
+                <div class="flex flex-col md:flex-row items-center gap-6">
+                    <div class="flex items-center gap-3 flex-1">
+                        <div class="p-3 bg-purple-100 rounded-full">
+                            <svg class="w-8 h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                            </svg>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-600 font-medium">سازمان انتخابی</p>
+                            <p class="text-xl font-bold text-purple-700" id="selected-organization">در حال بارگذاری...</p>
+                        </div>
+                    </div>
+                    
+                    <div class="h-12 w-px bg-gray-300 hidden md:block"></div>
+                    
+                    <div class="flex items-center gap-3 flex-1">
+                        <div class="p-3 bg-blue-100 rounded-full">
+                            <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-600 font-medium">استان انتخابی</p>
+                            <p class="text-xl font-bold text-blue-700" id="selected-province">در حال بارگذاری...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
             <!-- اطلاعات شخصی -->
             <div class="form-section">
@@ -771,6 +801,37 @@
         form.addEventListener('change', updateProgress);
         form.addEventListener('input', updateProgress);
     });
+</script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // دریافت از URL Parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    let province = urlParams.get('province');
+    let organization = urlParams.get('organization');
+    
+    // اگر در URL نبود، از localStorage بخون
+    if (!province) {
+        province = localStorage.getItem('selected_province');
+    }
+    if (!organization) {
+        organization = localStorage.getItem('selected_organization');
+    }
+    
+    // نمایش در صفحه
+    if (province) {
+        document.getElementById('selected-province').textContent = province;
+        document.getElementById('province-input').value = province;
+    } else {
+        document.getElementById('selected-province').textContent = 'انتخاب نشده';
+    }
+    
+    if (organization) {
+        document.getElementById('selected-organization').textContent = organization;
+        document.getElementById('organization-input').value = organization;
+    } else {
+        document.getElementById('selected-organization').textContent = 'انتخاب نشده';
+    }
+});
 </script>
 </body>
 </html>

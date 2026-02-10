@@ -32,7 +32,6 @@ class DeviceResource extends Resource
             return true;
         }
         
-        // اپراتور فنی می‌تواند دستگاه‌ها را ببیند
         return $user->can('view_devices') || $user->operator_tag === 'کارشناس فنی';
     }
 
@@ -40,16 +39,38 @@ class DeviceResource extends Resource
     {
         return $form
             ->schema([
+                // فرم Create - Textarea ساده
+                Forms\Components\Textarea::make('serial_numbers')
+                    ->label('سریال دستگاه‌ها')
+                    ->placeholder("هر سریال را در یک خط جدید وارد کنید (Enter بزنید):\n\nFCCC\nFGGG\nFHHH\nFKKK\nFLLL")
+                    ->rows(25)
+                    ->required()
+                    ->helperText('💡 برای اضافه کردن سریال جدید، Enter بزنید و سریال بعدی را وارد کنید')
+                    ->columnSpanFull()
+                    ->extraAttributes([
+                        'class' => 'font-mono text-lg',
+                        'style' => 'min-height: 600px !important; resize: vertical;'
+                    ])
+                    ->visible(fn ($livewire) => $livewire instanceof Pages\CreateDevice),
+            
+                Forms\Components\Select::make('type')
+                    ->label('نوع دستگاه (برای همه سریال‌ها)')
+                    ->options([
+                        'GPS Tracker' => 'GPS Tracker',
+                        'Fleet Management' => 'Fleet Management',
+                        'Temperature Sensor' => 'Temperature Sensor',
+                        'Fuel Monitor' => 'Fuel Monitor',
+                        'Speed Limiter' => 'Speed Limiter',
+                    ])
+                    ->required()
+                    ->searchable()
+                    ->native(false)
+                    ->helperText('این نوع برای تمام سریال‌های وارد شده اعمال می‌شود')
+                    ->visible(fn ($livewire) => $livewire instanceof Pages\CreateDevice),
+
+                // فرم Edit
                 Forms\Components\Section::make('اطلاعات دستگاه')
                     ->schema([
-                        Forms\Components\TextInput::make('code')
-                            ->label('کد دستگاه')
-                            ->required()
-                            ->unique(ignoreRecord: true)
-                            ->maxLength(100)
-                            ->placeholder('مثال: JK-2026-001')
-                            ->helperText('کد یکتای دستگاه'),
-                        
                         Forms\Components\TextInput::make('serial_number')
                             ->label('سریال دستگاه')
                             ->required()
@@ -75,6 +96,27 @@ class DeviceResource extends Resource
                             ->nullable()
                             ->maxDate(now()),
                     ])
+                    ->visible(fn ($livewire) => $livewire instanceof Pages\EditDevice)
+                    ->columns(2),
+
+                Forms\Components\Section::make('اطلاعات سیمکارت')
+                    ->schema([
+                        Forms\Components\TextInput::make('sim_number')
+                            ->label('شماره سیمکارت')
+                            ->tel()
+                            ->maxLength(255)
+                            ->placeholder('09xxxxxxxxx'),
+                    
+                        Forms\Components\TextInput::make('sim_serial')
+                            ->label('سریال سیمکارت')
+                            ->maxLength(255)
+                            ->placeholder('8998xxxxxxxxxx'),
+                        
+                        Forms\Components\Toggle::make('has_sim')
+                            ->label('دارای سیمکارت')
+                            ->default(false),
+                    ])
+                    ->visible(fn ($livewire) => $livewire instanceof Pages\EditDevice)
                     ->columns(2),
 
                 Forms\Components\Section::make('وضعیت')
@@ -96,8 +138,10 @@ class DeviceResource extends Resource
                         Forms\Components\Textarea::make('notes')
                             ->label('یادداشت')
                             ->rows(3)
-                            ->placeholder('توضیحات درباره دستگاه...'),
+                            ->placeholder('توضیحات درباره دستگاه...')
+                            ->columnSpanFull(),
                     ])
+                    ->visible(fn ($livewire) => $livewire instanceof Pages\EditDevice)
                     ->columns(1),
 
                 Forms\Components\Section::make('مرجوعی')
@@ -120,13 +164,14 @@ class DeviceResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('code')
-                    ->label('کد دستگاه')
+                Tables\Columns\TextColumn::make('serial_number')
+                    ->label('سریال دستگاه')
                     ->searchable()
                     ->sortable()
                     ->copyable()
                     ->icon('heroicon-o-qr-code')
-                    ->weight('bold'),
+                    ->weight('bold')
+                    ->color('primary'),
                 
                 Tables\Columns\TextColumn::make('type')
                     ->label('نوع')
@@ -134,12 +179,6 @@ class DeviceResource extends Resource
                     ->sortable()
                     ->badge()
                     ->color('info'),
-                
-                Tables\Columns\TextColumn::make('serial_number')
-                    ->label('سریال')
-                    ->searchable()
-                    ->toggleable()
-                    ->copyable(),
                 
                 Tables\Columns\BadgeColumn::make('status')
                     ->label('وضعیت')
@@ -173,6 +212,20 @@ class DeviceResource extends Resource
                     ->toggleable()
                     ->default('—')
                     ->icon('heroicon-o-user'),
+                
+                Tables\Columns\IconColumn::make('has_sim')
+                    ->label('سیمکارت')
+                    ->boolean()
+                    ->trueIcon('heroicon-o-check-circle')
+                    ->falseIcon('heroicon-o-x-circle')
+                    ->trueColor('success')
+                    ->falseColor('danger'),
+                
+                Tables\Columns\TextColumn::make('sim_number')
+                    ->label('شماره سیم')
+                    ->toggleable()
+                    ->default('—')
+                    ->copyable(),
                 
                 Tables\Columns\IconColumn::make('is_returned')
                     ->label('مرجوعی')
@@ -218,6 +271,12 @@ class DeviceResource extends Resource
                         'Speed Limiter' => 'Speed Limiter',
                     ]),
                 
+                Tables\Filters\TernaryFilter::make('has_sim')
+                    ->label('سیمکارت')
+                    ->placeholder('همه')
+                    ->trueLabel('دارای سیم')
+                    ->falseLabel('بدون سیم'),
+                
                 Tables\Filters\TernaryFilter::make('is_returned')
                     ->label('مرجوعی')
                     ->placeholder('همه')
@@ -229,7 +288,7 @@ class DeviceResource extends Resource
                     ->label('اختصاص به متقاضی')
                     ->icon('heroicon-o-user-plus')
                     ->color('success')
-                    ->visible(fn (Device $record) => $record->status === 'available')
+                    ->visible(fn (Device $record) => $record->status === 'available' && $record->has_sim)
                     ->form([
                         Forms\Components\Select::make('registration_id')
                             ->label('انتخاب متقاضی')
@@ -245,7 +304,6 @@ class DeviceResource extends Resource
                     ->action(function (Device $record, array $data) {
                         $registration = Registration::find($data['registration_id']);
                         
-                        // لینک دوطرفه
                         $record->update([
                             'status' => 'assigned',
                             'assigned_to_registration_id' => $registration->id,
@@ -261,11 +319,10 @@ class DeviceResource extends Resource
                         Notification::make()
                             ->success()
                             ->title('دستگاه اختصاص داده شد')
-                            ->body("دستگاه {$record->code} به {$registration->full_name} اختصاص یافت")
+                            ->body("دستگاه {$record->serial_number} به {$registration->full_name} اختصاص یافت")
                             ->send();
                     }),
 
-                // اکشن تغییر وضعیت
                 Tables\Actions\Action::make('change_status')
                     ->label('تغییر وضعیت')
                     ->icon('heroicon-o-arrow-path')
@@ -294,7 +351,7 @@ class DeviceResource extends Resource
                         Notification::make()
                             ->success()
                             ->title('وضعیت تغییر کرد')
-                            ->body("وضعیت دستگاه {$record->code} به‌روزرسانی شد")
+                            ->body("وضعیت دستگاه {$record->serial_number} به‌روزرسانی شد")
                             ->send();
                     }),
                 
@@ -328,16 +385,18 @@ class DeviceResource extends Resource
             'index' => Pages\ListDevices::route('/'),
             'create' => Pages\CreateDevice::route('/create'),
             'edit' => Pages\EditDevice::route('/{record}/edit'),
+            'without-sim' => Pages\DevicesWithoutSim::route('/without-sim'),
         ];
     }
 
     public static function getNavigationBadge(): ?string
     {
-        return static::getModel()::where('status', 'available')->count() ?: null;
+        $withoutSimCount = Device::withoutSim()->count();
+        return $withoutSimCount > 0 ? (string) $withoutSimCount : null;
     }
 
     public static function getNavigationBadgeColor(): ?string
     {
-        return 'success';
+        return 'warning';
     }
 }

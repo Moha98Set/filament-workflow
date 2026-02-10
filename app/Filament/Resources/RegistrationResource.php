@@ -134,11 +134,11 @@ class RegistrationResource extends Resource
                                     ->label('انتخاب دستگاه')
                                     ->options(function () {
                                         return Device::where('status', 'available')
-                                            ->pluck('code', 'id');
+                                            ->where('has_sim', true)
+                                            ->pluck('serial_number', 'id'); // تغییر از serial به serial_number
                                     })
                                     ->searchable()
-                                    ->helperText('فقط دستگاه‌های موجود نمایش داده می‌شوند')
-                                    ->disabled(fn ($record) => $record?->status !== 'financial_approved'),
+                                    ->helperText('فقط دستگاه‌های موجود و دارای سیمکارت'),
                                 
                                 Forms\Components\Textarea::make('device_assignment_note')
                                     ->label('یادداشت اختصاص دستگاه')
@@ -259,7 +259,7 @@ class RegistrationResource extends Resource
                     ->formatStateUsing(fn ($record) => $record->status_label)
                     ->color(fn ($record) => $record->status_color),
                 
-                Tables\Columns\TextColumn::make('assignedDevice.code')
+                Tables\Columns\TextColumn::make('assignedDevice.serial_number')
                     ->label('دستگاه')
                     ->default('—')
                     ->badge()
@@ -270,8 +270,26 @@ class RegistrationResource extends Resource
                     ->label('تاریخ ثبت')
                     ->dateTime('Y/m/d')
                     ->sortable(),
+
+                Tables\Columns\BadgeColumn::make('organization')
+                    ->label('سازمان')
+                    ->colors([
+                        'success' => 'جهاد کشاورزی',
+                        'danger' => 'صنعت معدن و تجارت',
+                        'info' => 'سازمان شیلات',
+                    ])
+                    ->searchable()
+                    ->sortable(),
             ])
             ->filters([
+                Tables\Filters\SelectFilter::make('organization')
+                ->label('سازمان')
+                ->options([
+                    'جهاد کشاورزی' => 'جهاد کشاورزی',
+                    'صنعت معدن و تجارت' => 'صنعت معدن و تجارت',
+                    'سازمان شیلات' => 'سازمان شیلات',
+                ]),
+
                 Tables\Filters\SelectFilter::make('status')
                     ->label('وضعیت')
                     ->options([
@@ -392,14 +410,36 @@ class RegistrationResource extends Resource
                 Tables\Actions\Action::make('assign_device')
                     ->label('اختصاص دستگاه')
                     ->icon('heroicon-o-cpu-chip')
-                    ->color('info')
-                    ->visible(fn ($record) => $record->status === 'financial_approved' && (auth()->user()->hasRole(['super_admin', 'admin']) || auth()->user()->operator_tag === 'کارشناس فنی'))
+                    ->color('success')
+                    ->visible(fn (Registration $record) => 
+                        $record->status === 'financial_approved' && 
+                        !$record->assigned_device_id &&
+                        (auth()->user()->hasRole(['super_admin', 'admin']) || 
+                        auth()->user()->operator_tag === 'کارشناس فنی')
+                    )
                     ->form([
                         Forms\Components\Select::make('device_id')
                             ->label('انتخاب دستگاه')
-                            ->options(Device::where('status', 'available')->pluck('code', 'id'))
+                            ->options(function () {
+                                return Device::where('status', 'available')
+                                    ->where('has_sim', true) // ✅ این خط رو چک کنید وجود داره
+                                    ->get()
+                                    ->mapWithKeys(function ($device) {
+                                        return [
+                                            $device->id => sprintf(
+                                                '%s | %s | سیم: %s',
+                                                $device->serial_number,
+                                                $device->type,
+                                                $device->sim_number ?? 'ندارد'
+                                            )
+                                        ];
+                                    });
+                            })
                             ->searchable()
-                            ->required(),
+                            ->required()
+                            ->helperText('⚠️ فقط دستگاه‌های موجود و دارای سیمکارت نمایش داده می‌شوند')
+                            ->placeholder('یک دستگاه انتخاب کنید')
+                            ->native(false),
                     ])
                     ->action(function (Registration $record, array $data) {
                         $device = Device::find($data['device_id']);
