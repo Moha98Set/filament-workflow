@@ -1,12 +1,5 @@
 <?php
 
-/**
- * آدرس فایل: app/Models/Device.php
- * 
- * دستور ایجاد:
- * php artisan make:model Device
- */
-
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
@@ -15,10 +8,12 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class Device extends Model
 {
     protected $fillable = [
-        'code',
         'type',
         'serial_number',
         'manufacturing_date',
+        'sim_number',          // جدید
+        'sim_serial',          // جدید
+        'has_sim', 
         'status',
         'assigned_to_registration_id',
         'created_by',
@@ -30,6 +25,7 @@ class Device extends Model
 
     protected $casts = [
         'manufacturing_date' => 'date',
+        'has_sim' => 'boolean',
         'returned_at' => 'datetime',
         'is_returned' => 'boolean',
     ];
@@ -138,5 +134,9 @@ class Device extends Model
             'status' => 'available',
             'assigned_to_registration_id' => null,
         ]);
+    }
+    public function scopeWithoutSim($query)
+    {
+        return $query->where('has_sim', false);
     }
 }

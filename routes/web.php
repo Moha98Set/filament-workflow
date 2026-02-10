@@ -1,13 +1,23 @@
 <?php
 
-use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\UserRegistrationController;
 use App\Http\Controllers\RegistrationController;
-use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
-use Inertia\Inertia;
 
-// ثبت‌نام کاربران
+/*
+|--------------------------------------------------------------------------
+| صفحه اصلی (Homepage)
+|--------------------------------------------------------------------------
+*/
+Route::get('/', function () {
+    return view('welcome');
+})->name('home');
+
+/*
+|--------------------------------------------------------------------------
+| ثبت‌نام عمومی کاربران (User Registration)
+|--------------------------------------------------------------------------
+*/
 Route::get('/user/register', [UserRegistrationController::class, 'showRegistrationForm'])
     ->name('user.register');
 
@@ -17,16 +27,22 @@ Route::post('/user/register', [UserRegistrationController::class, 'register'])
 Route::get('/user/pending', [UserRegistrationController::class, 'pendingPage'])
     ->name('user.register.pending');
 
-// 1️⃣ صفحه اول: انتخاب استان
+/*
+|--------------------------------------------------------------------------
+| ثبت‌نام مشتریان (Client Registration - Public)
+|--------------------------------------------------------------------------
+*/
+// صفحه انتخاب استان
 Route::get('/client-register', function () {
     return view('province-selection');
-})->name('register');
+})->name('client.register');
 
-// 2️⃣ صفحه دوم: فرم ثبت‌نام (با پارامترهای استان و سازمان)
+// صفحه فرم ثبت‌نام
 Route::get('/register-form', function () {
     return view('registration-form');
 })->name('register.form');
 
+// ثبت درخواست
 Route::post('/client-register/submit', [RegistrationController::class, 'store'])
     ->name('client.register.submit');
 
@@ -35,39 +51,28 @@ Route::get('/register/success', function () {
     return view('registration-success');
 })->name('register.success');
 
-Route::get('/', function () {
-    return Inertia::render('Welcome', [
-        'canLogin' => Route::has('login'),
-        'canRegister' => Route::has('register'),
-        'laravelVersion' => Application::VERSION,
-        'phpVersion' => PHP_VERSION,
-    ]);
-});
-
-Route::get('/dashboard', function () {
-    return Inertia::render('Dashboard');
-})->middleware(['auth', 'verified'])->name('dashboard');
-
-Route::get('/Login', [LoginController::class, 'show'])->name('login');
-
-Route::middleware('auth')->group(function () {
-    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
-    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
-    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
-});
-
-Route::get('/register-client', function () {
-    return view('register-client'); // فایلی که در مرحله بعد می‌سازیم
-});
-
-Route::post('/register-client', [ClientRegistrationController::class, 'store'])->name('client.store');
-
+/*
+|--------------------------------------------------------------------------
+| Route های تست (فقط Development)
+|--------------------------------------------------------------------------
+*/
 Route::get('/test-auth', function () {
     if (auth()->check()) {
         $user = auth()->user();
-        return 'Logged in as: ' . $user->email . '<br>Status: ' . $user->status . '<br>Can access panel: ' . ($user->canAccessPanel(app(\Filament\Panel::class)) ? 'YES' : 'NO');
+        $panel = \Filament\Facades\Filament::getPanel('admin');
+        
+        return 'Logged in: YES<br>' .
+               'Email: ' . $user->email . '<br>' .
+               'Status: ' . $user->status . '<br>' .
+               'Can access panel: ' . ($user->canAccessPanel($panel) ? 'YES ✅' : 'NO ❌');
     }
-    return 'Not logged in';
-});
+    return 'Not logged in ❌';
+})->middleware('web');
 
-require __DIR__.'/auth.php';
+/*
+|--------------------------------------------------------------------------
+| Auth Routes (Laravel Breeze - حذف شده)
+|--------------------------------------------------------------------------
+| چون Breeze رو حذف کردیم، این خط رو کامنت می‌کنیم
+*/
+// require __DIR__.'/auth.php';
