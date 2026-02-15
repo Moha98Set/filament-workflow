@@ -32,6 +32,7 @@ Route::get('/user/pending', [UserRegistrationController::class, 'pendingPage'])
 | ثبت‌نام مشتریان (Client Registration - Public)
 |--------------------------------------------------------------------------
 */
+
 // صفحه انتخاب استان
 Route::get('/client-register', function () {
     return view('province-selection');
@@ -46,10 +47,10 @@ Route::get('/register-form', function () {
 Route::post('/client-register/submit', [RegistrationController::class, 'store'])
     ->name('client.register.submit');
 
-// صفحه موفقیت
+// صفحه موفقیت (نام اصلاح شد)
 Route::get('/register/success', function () {
     return view('registration-success');
-})->name('register.success');
+})->name('client.register.success');
 
 /*
 |--------------------------------------------------------------------------
@@ -73,6 +74,5 @@ Route::get('/test-auth', function () {
 |--------------------------------------------------------------------------
 | Auth Routes (Laravel Breeze - حذف شده)
 |--------------------------------------------------------------------------
-| چون Breeze رو حذف کردیم، این خط رو کامنت می‌کنیم
 */
 // require __DIR__.'/auth.php';

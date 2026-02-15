@@ -10,7 +10,7 @@ class RegistrationController extends Controller
     public function store(Request $request)
     {
         try {
-            // Validation
+            // Validate incoming request
             $validated = $request->validate([
                 'province' => 'required|string',
                 'organization' => 'required|string',
@@ -24,32 +24,45 @@ class RegistrationController extends Controller
                 'tractors' => 'required|array|min:1',
             ]);
 
-            // پردازش تراکتورها
-            $tractors = [];
-            if ($request->has('tractors')) {
-                foreach ($request->tractors as $index => $tractor) {
-                    $tractorData = [
-                        'system' => $tractor['system'] ?? null,
-                        'type' => $tractor['type'] ?? null,
-                        'cylinders' => $tractor['cylinders'] ?? null,
-                    ];
+            // Map Persian organization values to ENUM values
+            $organizationMap = [
+                'جهاد کشاورزی' => 'jihad',
+                'صنعت' => 'industry',
+                'شیلات' => 'fisheries',
+            ];
 
-                    // آپلود برگ سبز (اگر وجود داشته باشد)
-                    if ($request->hasFile("tractors.{$index}.green_card")) {
-                        $file = $request->file("tractors.{$index}.green_card");
-                        $filename = time() . '_' . $index . '_' . $file->getClientOriginalName();
-                        $path = $file->storeAs('green-cards', $filename, 'public');
-                        $tractorData['green_card_path'] = $path;
-                    }
+            $organizationValue = $organizationMap[$validated['organization']] ?? null;
 
-                    $tractors[] = $tractorData;
-                }
+            if (!$organizationValue) {
+                return back()->with('error', 'سازمان انتخاب‌شده معتبر نیست.');
             }
 
-            // ایجاد رکورد
-            $registration = Registration::create([
+            // Process tractors data
+            $tractors = [];
+
+            foreach ($request->tractors as $index => $tractor) {
+
+                $tractorData = [
+                    'system' => $tractor['system'] ?? null,
+                    'type' => $tractor['type'] ?? null,
+                    'cylinders' => $tractor['cylinders'] ?? null,
+                ];
+
+                // Upload green card file if exists
+                if ($request->hasFile("tractors.{$index}.green_card")) {
+                    $file = $request->file("tractors.{$index}.green_card");
+                    $filename = time() . '_' . $index . '_' . $file->getClientOriginalName();
+                    $path = $file->storeAs('green-cards', $filename, 'public');
+                    $tractorData['green_card_path'] = $path;
+                }
+
+                $tractors[] = $tractorData;
+            }
+
+            // Create registration record
+            Registration::create([
                 'province' => $validated['province'],
-                'organization' => $validated['organization'],
+                'organization' => $organizationValue, // Save ENUM value
                 'full_name' => $validated['full_name'],
                 'phone' => $validated['phone'],
                 'national_id' => $validated['national_id'],
@@ -61,13 +74,16 @@ class RegistrationController extends Controller
                 'status' => 'pending',
             ]);
 
-            // انتقال به صفحه موفقیت
-            return redirect()->route('client.register.success')
+            return redirect()
+                ->route('client.register.success')
                 ->with('success', 'ثبت‌نام شما با موفقیت انجام شد!');
 
         } catch (\Exception $e) {
-            // در صورت خطا
-            return back()->with('error', 'خطا در ثبت اطلاعات: ' . $e->getMessage());
+
+            return back()->with(
+                'error',
+                'خطا در ثبت اطلاعات: ' . $e->getMessage()
+            );
         }
     }
 }

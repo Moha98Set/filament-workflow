@@ -75,7 +75,7 @@
         <br>
         نتیجه بررسی به زودی از طریق پیامک به شماره شما اطلاع‌رسانی خواهد شد.
     </p>
-    <a href="{{ route('register') }}" class="btn">ثبت‌نام جدید</a>
+    <a href="{{ route('client.register') }}" class="btn">ثبت‌نام جدید</a>
 </div>
 </body>
 </html>

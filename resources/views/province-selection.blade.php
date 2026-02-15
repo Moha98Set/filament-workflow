@@ -205,7 +205,7 @@
                         localStorage.setItem('selected_province', province);
                         localStorage.setItem('selected_organization', organization);
                         
-                        window.location.href = "register-form.html?province=" + encodeURIComponent(province) + "&organization=" + encodeURIComponent(organization);
+                        window.location.href = "/register-form?province=" + encodeURIComponent(province) + "&organization=" + encodeURIComponent(organization);
                     });
                 }
             });
