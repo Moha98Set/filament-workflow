@@ -9,7 +9,6 @@
                 <th style="padding: 10px; border: 1px solid #e5e7eb; text-align: right;">شهرستان</th>
                 <th style="padding: 10px; border: 1px solid #e5e7eb; text-align: right;">وضعیت</th>
                 <th style="padding: 10px; border: 1px solid #e5e7eb; text-align: right;">تاریخ</th>
-                <th style="padding: 10px; border: 1px solid #e5e7eb; text-align: right;">عملیات</th>
             </tr>
         </thead>
         <tbody>
@@ -28,18 +27,6 @@
                     @endif
                 </td>
                 <td style="padding: 10px; border: 1px solid #e5e7eb;">{{ $reg->created_at->format('Y/m/d') }}</td>
-                <td style="padding: 10px; border: 1px solid #e5e7eb; text-align: center;">
-                    @if($type === 'pending')
-                    <form method="POST" action="/admin/remove-installer/{{ $reg->id }}" style="display: inline;">
-                        @csrf
-                        <button type="submit" onclick="return confirm('آیا مطمئنید؟ مشتری به مرحله انتقال به نصاب برمی‌گردد.')" style="background: #fecaca; color: #991b1b; border: none; padding: 4px 12px; border-radius: 8px; cursor: pointer; font-family: Vazirmatn, sans-serif; font-size: 12px; font-weight: 600;">
-                            حذف
-                        </button>
-                    </form>
-                    @else
-                        —
-                    @endif
-                </td>
             </tr>
             @endforeach
         </tbody>

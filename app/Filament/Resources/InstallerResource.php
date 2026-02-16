@@ -332,7 +332,67 @@ class InstallerResource extends Resource
                         ]);
                     })
                     ->modalSubmitAction(false)
-                    ->modalCancelActionLabel('بستن'),
+                    ->modalCancelActionLabel('بستن')
+                    ->extraModalFooterActions(function (User $record) {
+                        $registrations = Registration::where('installer_id', $record->id)
+                            ->whereIn('status', ['device_assigned', 'ready_for_installation'])
+                            ->get();
+
+                        return $registrations->map(function ($reg) {
+                            return Tables\Actions\Action::make('remove_' . $reg->id)
+                                ->label("حذف {$reg->full_name}")
+                                ->color('danger')
+                                ->requiresConfirmation()
+                                ->action(function () use ($reg) {
+                                    $reg->update(['installer_id' => null]);
+
+                                    Notification::make()
+                                        ->warning()
+                                        ->title("{$reg->full_name} از نصاب حذف شد")
+                                        ->send();
+                                });
+                        })->toArray();
+                    }),
+
+                Tables\Actions\Action::make('remove_customer')
+                    ->label('حذف مشتری از نصاب')
+                    ->icon('heroicon-o-user-minus')
+                    ->color('danger')
+                    ->visible(fn (User $record) => 
+                        Registration::where('installer_id', $record->id)
+                            ->whereIn('status', ['device_assigned', 'ready_for_installation'])
+                            ->count() > 0
+                    )
+                    ->form(function (User $record) {
+                        return [
+                            Forms\Components\CheckboxList::make('registration_ids')
+                                ->label('مشتریانی که می‌خواهید حذف کنید')
+                                ->options(
+                                    Registration::where('installer_id', $record->id)
+                                        ->whereIn('status', ['device_assigned', 'ready_for_installation'])
+                                        ->get()
+                                        ->mapWithKeys(fn ($reg) => [
+                                            $reg->id => "{$reg->full_name} | {$reg->phone} | دستگاه: " . ($reg->assignedDevice?->serial_number ?? '—')
+                                        ])
+                                )
+                                ->required()
+                                ->columns(1),
+                        ];
+                    })
+                    ->action(function (User $record, array $data) {
+                        $count = 0;
+                        foreach ($data['registration_ids'] as $regId) {
+                            Registration::where('id', $regId)->update([
+                                'installer_id' => null,
+                            ]);
+                            $count++;
+                        }
+
+                        Notification::make()
+                            ->warning()
+                            ->title("{$count} مشتری از {$record->name} حذف شد")
+                            ->send();
+                    }),
 
                 Tables\Actions\EditAction::make(),
                 Tables\Actions\DeleteAction::make(),

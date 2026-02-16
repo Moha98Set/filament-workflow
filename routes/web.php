@@ -28,13 +28,7 @@ Route::get('/user/pending', [UserRegistrationController::class, 'pendingPage'])
     ->name('user.register.pending');
 
 
-    Route::post('/admin/remove-installer/{registration}', function (\App\Models\Registration $registration) {
-    $registration->update([
-        'installer_id' => null,
-    ]);
-
-    return back();
-})->middleware(['auth'])->name('admin.remove-installer');
+    
 /*
 |--------------------------------------------------------------------------
 | ثبت‌نام مشتریان (Client Registration - Public)
