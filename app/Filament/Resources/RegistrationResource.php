@@ -634,6 +634,41 @@ class RegistrationResource extends Resource
                             ->send();
                     }),
                 
+                Tables\Actions\Action::make('assign_installer')
+                    ->label('انتقال به نصاب')
+                    ->icon('heroicon-o-truck')
+                    ->color('success')
+                    ->visible(fn (Registration $record) => 
+                        $record->status === 'ready_for_installation' && 
+                        !$record->installer_id &&
+                        (auth()->user()->hasRole(['super_admin', 'admin']) || auth()->user()->operator_tag === 'کارشناس فنی')
+                    )
+                    ->form([
+                        Forms\Components\Select::make('installer_id')
+                            ->label('انتخاب نصاب')
+                            ->options(function () {
+                                return \App\Models\User::where('operator_tag', 'نصاب')
+                                    ->where('is_active', true)
+                                    ->pluck('name', 'id');
+                            })
+                            ->searchable()
+                            ->required()
+                            ->helperText('فقط نصاب‌های فعال نمایش داده می‌شوند'),
+                    ])
+                    ->action(function (Registration $record, array $data) {
+                        $record->update([
+                            'installer_id' => $data['installer_id'],
+                        ]);
+
+                        $installer = \App\Models\User::find($data['installer_id']);
+
+                        Notification::make()
+                            ->success()
+                            ->title("به {$installer->name} انتقال داده شد")
+                            ->body("مشتری {$record->full_name} برای نصب به {$installer->name} اختصاص یافت")
+                            ->send();
+                    }),
+
                 Tables\Actions\EditAction::make(),
                 Tables\Actions\DeleteAction::make()
                     ->before(function (Registration $record) {
