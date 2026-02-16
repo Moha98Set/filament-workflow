@@ -23,6 +23,14 @@ class User extends Authenticatable implements FilamentUser
         'approved_by',
         'approved_at',
         'rejection_reason',
+        'phone',
+        'organization',
+        'national_id',
+        'city',
+        'province',
+        'address',
+        'cooperation_start_date',
+        'is_active',
     ];
 
     protected $hidden = [
@@ -36,6 +44,10 @@ class User extends Authenticatable implements FilamentUser
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'approved_at' => 'datetime',
+            'email_verified_at' => 'datetime',
+            'password' => 'hashed',
+            'cooperation_start_date' => 'date',
+            'is_active' => 'boolean',
         ];
     }
 
@@ -111,5 +123,9 @@ class User extends Authenticatable implements FilamentUser
     public function canAccessPanel(Panel $panel): bool
     {
         return $this->status === 'active';
+    }
+    public function createdDevices()
+    {
+        return $this->hasMany(Device::class, 'created_by');
     }
 }

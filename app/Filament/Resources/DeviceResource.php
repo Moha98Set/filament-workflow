@@ -67,6 +67,18 @@ class DeviceResource extends Resource
                     ->native(false)
                     ->helperText('این نوع برای تمام سریال‌های وارد شده اعمال می‌شود')
                     ->visible(fn ($livewire) => $livewire instanceof Pages\CreateDevice),
+                    
+                // ← اینجا اضافه کن
+                Forms\Components\Section::make('آپلود فایل اکسل')
+                    ->description('فایل اکسل با ۳ ستون: کد دستگاه، شماره سیمکارت، سریال سیمکارت')
+                    ->schema([
+                        Forms\Components\FileUpload::make('excel_file')
+                            ->label('فایل اکسل')
+                            ->acceptedFileTypes(['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-excel'])
+                            ->directory('temp-uploads')
+                            ->helperText('فایل xlsx با ستون‌های: کد دستگاه | شماره سیمکارت | سریال سیمکارت'),
+                    ])
+                    ->visible(fn ($livewire) => $livewire instanceof Pages\CreateDevice),
 
                 // فرم Edit
                 Forms\Components\Section::make('اطلاعات دستگاه')
@@ -356,7 +368,19 @@ class DeviceResource extends Resource
                     }),
                 
                 Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
+                Tables\Actions\DeleteAction::make()
+                    ->before(function (Device $record) {
+                        // اگه دستگاه به مشتری اختصاص داده شده، مشتری رو برگردون به تأیید مالی
+                        $registration = Registration::where('assigned_device_id', $record->id)->first();
+                        if ($registration) {
+                            $registration->update([
+                                'status' => 'pending',
+                                'assigned_device_id' => null,
+                                'device_assigned_by' => null,
+                                'device_assigned_at' => null,
+                            ]);
+                        }
+                    }),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([

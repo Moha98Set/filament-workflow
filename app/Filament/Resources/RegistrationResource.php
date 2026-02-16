@@ -61,7 +61,27 @@ class RegistrationResource extends Resource
                                 Forms\Components\Select::make('province')
                                     ->label('استان')
                                     ->required()
-                                    ->searchable(),
+                                    ->searchable()
+                                    ->options([
+                                        'fars' => 'فارس',
+                                        'bushehr' => 'بوشهر',
+                                        'khuzestan' => 'خوزستان',
+                                        'khorasan_razavi' => 'خراسان رضوی',
+                                        'zanjan' => 'زنجان',
+                                        'hormozgan' => 'هرمزگان',
+                                        'chaharmahal' => 'چهارمحال و بختیاری',
+                                        'kohgiluyeh' => 'کهگیلویه و بویراحمد',
+                                    ]),
+
+                                Forms\Components\Select::make('organization')
+                                    ->label('سازمان')
+                                    ->required()
+                                    ->searchable()
+                                    ->options([
+                                        'jihad' => 'جهاد کشاورزی',
+                                        'sanat' => 'صنعت معدن و تجارت',
+                                        'shilat' => 'سازمان شیلات',
+                                    ]),
                                 
                                 Forms\Components\TextInput::make('city')
                                     ->label('شهر')
@@ -167,7 +187,56 @@ class RegistrationResource extends Resource
                                     ->visible(fn ($record) => $record?->device_assigned_by !== null),
                             ])
                             ->columns(1),
+                        
+                        // تب: آماده‌سازی دستگاه
+                        Forms\Components\Tabs\Tab::make('آماده‌سازی دستگاه')
+                            ->icon('heroicon-o-clipboard-document-check')
+                            ->schema([
+                                Forms\Components\Placeholder::make('prep_status')
+                                    ->label('وضعیت آماده‌سازی')
+                                    ->content(function ($record) {
+                                        if (!$record) return 'ثبت‌نام جدید';
+                                        if ($record->status !== 'device_assigned') return 'این مرحله هنوز فعال نشده';
+                                        if ($record->sim_activated && $record->device_tested) return '✅ آماده انتقال به نصاب';
+                                        return '⏳ در انتظار تأیید چک‌لیست';
+                                    }),
 
+                                Forms\Components\Toggle::make('sim_activated')
+                                    ->label('سیمکارت فعال شده')
+                                    ->helperText('آیا سیمکارت دستگاه فعال و تست شده است؟')
+                                    ->disabled(fn ($record) => 
+                                        !$record || 
+                                        $record->status !== 'device_assigned' || 
+                                        (!auth()->user()->hasRole(['super_admin', 'admin']) && auth()->user()->operator_tag !== 'کارشناس فنی')
+                                    ),
+
+                                Forms\Components\Toggle::make('device_tested')
+                                    ->label('دستگاه تست شده')
+                                    ->helperText('آیا دستگاه به درستی کار می‌کند و تست شده است؟')
+                                    ->disabled(fn ($record) => 
+                                        !$record || 
+                                        $record->status !== 'device_assigned' || 
+                                        (!auth()->user()->hasRole(['super_admin', 'admin']) && auth()->user()->operator_tag !== 'کارشناس فنی')
+                                    ),
+
+                                Forms\Components\Textarea::make('preparation_note')
+                                    ->label('یادداشت آماده‌سازی')
+                                    ->rows(3)
+                                    ->disabled(fn ($record) => 
+                                        !$record || 
+                                        $record->status !== 'device_assigned' || 
+                                        (!auth()->user()->hasRole(['super_admin', 'admin']) && auth()->user()->operator_tag !== 'کارشناس فنی')
+                                    ),
+
+                                Forms\Components\Placeholder::make('prep_info')
+                                    ->label('اطلاعات تأیید')
+                                    ->content(function ($record) {
+                                        if (!$record || !$record->preparation_approved_by) return 'هنوز تأیید نشده';
+                                        return "تأیید توسط: {$record->preparationApprover->name} در تاریخ " . $record->preparation_approved_at->format('Y/m/d H:i');
+                                    })
+                                    ->visible(fn ($record) => $record?->preparation_approved_by !== null),
+                            ])
+                            ->columns(1),
                         // تب 4: نصب
                         Forms\Components\Tabs\Tab::make('نصب')
                             ->icon('heroicon-o-wrench-screwdriver')
@@ -273,22 +342,28 @@ class RegistrationResource extends Resource
 
                 Tables\Columns\BadgeColumn::make('organization')
                     ->label('سازمان')
+                    ->formatStateUsing(fn ($state) => match($state) {
+                        'jihad' => 'جهاد کشاورزی',
+                        'sanat' => 'صنعت معدن و تجارت',
+                        'shilat' => 'سازمان شیلات',
+                        default => $state,
+                    })
                     ->colors([
-                        'success' => 'جهاد کشاورزی',
-                        'danger' => 'صنعت معدن و تجارت',
-                        'info' => 'سازمان شیلات',
+                        'success' => 'jihad',
+                        'danger' => 'sanat',
+                        'info' => 'shilat',
                     ])
                     ->searchable()
                     ->sortable(),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('organization')
-                ->label('سازمان')
-                ->options([
-                    'جهاد کشاورزی' => 'جهاد کشاورزی',
-                    'صنعت معدن و تجارت' => 'صنعت معدن و تجارت',
-                    'سازمان شیلات' => 'سازمان شیلات',
-                ]),
+                    ->label('سازمان')
+                    ->options([
+                        'jihad' => 'جهاد کشاورزی',
+                        'sanat' => 'صنعت معدن و تجارت',
+                        'shilat' => 'سازمان شیلات',
+                    ]),
 
                 Tables\Filters\SelectFilter::make('status')
                     ->label('وضعیت')
@@ -305,7 +380,16 @@ class RegistrationResource extends Resource
                 
                 Tables\Filters\SelectFilter::make('province')
                     ->label('استان')
-                    ->searchable(),
+                    ->options([
+                        'fars' => 'فارس',
+                        'bushehr' => 'بوشهر',
+                        'khuzestan' => 'خوزستان',
+                        'khorasan_razavi' => 'خراسان رضوی',
+                        'zanjan' => 'زنجان',
+                        'hormozgan' => 'هرمزگان',
+                        'chaharmahal' => 'چهارمحال و بختیاری',
+                        'kohgiluyeh' => 'کهگیلویه و بویراحمد',
+                    ]),
             ])
             ->modifyQueryUsing(function ($query) use ($user) {
                 // فیلتر خودکار بر اساس نقش
@@ -460,9 +544,109 @@ class RegistrationResource extends Resource
                             ->title('دستگاه اختصاص داده شد')
                             ->send();
                     }),
+
+                Tables\Actions\Action::make('approve_preparation')
+                    ->label('تأیید آماده‌سازی')
+                    ->icon('heroicon-o-clipboard-document-check')
+                    ->color('info')
+                    ->visible(fn (Registration $record) => 
+                        $record->status === 'device_assigned' && 
+                        !$record->preparation_approved_by &&
+                        (auth()->user()->hasRole(['super_admin', 'admin']) || auth()->user()->operator_tag === 'کارشناس فنی')
+                    )
+                    ->form([
+                        Forms\Components\Toggle::make('sim_activated')
+                            ->label('سیمکارت فعال شده')
+                            ->required()
+                            ->accepted(),
+
+                        Forms\Components\Toggle::make('device_tested')
+                            ->label('دستگاه تست شده')
+                            ->required()
+                            ->accepted(),
+
+                        Forms\Components\Textarea::make('note')
+                            ->label('یادداشت')
+                            ->rows(2),
+                    ])
+                    ->action(function (Registration $record, array $data) {
+                        $record->update([
+                            'sim_activated' => true,
+                            'device_tested' => true,
+                            'preparation_note' => $data['note'] ?? null,
+                            'preparation_approved_by' => auth()->id(),
+                            'preparation_approved_at' => now(),
+                            'status' => 'ready_for_installation',
+                        ]);
+
+                        \Filament\Notifications\Notification::make()
+                            ->success()
+                            ->title('دستگاه آماده انتقال به نصاب شد')
+                            ->send();
+                    }),
+
+                Tables\Actions\Action::make('report_faulty')
+                    ->label('گزارش معیوبی')
+                    ->icon('heroicon-o-exclamation-triangle')
+                    ->color('danger')
+                    ->visible(fn (Registration $record) => 
+                        $record->status === 'device_assigned' && 
+                        $record->assigned_device_id &&
+                        (auth()->user()->hasRole(['super_admin', 'admin']) || auth()->user()->operator_tag === 'کارشناس فنی')
+                    )
+                    ->requiresConfirmation()
+                    ->modalHeading('گزارش دستگاه معیوب')
+                    ->modalDescription('دستگاه از مشتری جدا شده و به بخش معیوب‌ها منتقل می‌شود. مشتری به مرحله انتظار اختصاص دستگاه برمی‌گردد.')
+                    ->form([
+                        Forms\Components\Textarea::make('fault_reason')
+                            ->label('دلیل معیوبی')
+                            ->required()
+                            ->rows(3)
+                            ->placeholder('توضیح دهید چه مشکلی با دستگاه وجود دارد...'),
+                    ])
+                    ->action(function (Registration $record, array $data) {
+                        $device = \App\Models\Device::find($record->assigned_device_id);
+                        
+                        if ($device) {
+                            $device->update([
+                                'status' => 'faulty',
+                                'notes' => $data['fault_reason'],
+                                'assigned_to_registration_id' => null,
+                            ]);
+                        }
+
+                        $record->update([
+                            'status' => 'financial_approved',
+                            'assigned_device_id' => null,
+                            'device_assigned_by' => null,
+                            'device_assigned_at' => null,
+                            'sim_activated' => false,
+                            'device_tested' => false,
+                            'preparation_approved_by' => null,
+                            'preparation_approved_at' => null,
+                            'preparation_note' => null,
+                        ]);
+
+                        Notification::make()
+                            ->warning()
+                            ->title('دستگاه معیوب گزارش شد')
+                            ->body("دستگاه {$device?->serial_number} به معیوب‌ها منتقل شد و مشتری {$record->full_name} به انتظار اختصاص دستگاه برگشت")
+                            ->send();
+                    }),
                 
                 Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
+                Tables\Actions\DeleteAction::make()
+                    ->before(function (Registration $record) {
+                        if ($record->assigned_device_id) {
+                            $device = \App\Models\Device::find($record->assigned_device_id);
+                            if ($device) {
+                                $device->update([
+                                    'status' => 'available',
+                                    'assigned_to_registration_id' => null,
+                                ]);
+                            }
+                        }
+                    }),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([

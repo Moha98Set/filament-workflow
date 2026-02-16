@@ -11,8 +11,8 @@ class Device extends Model
         'type',
         'serial_number',
         'manufacturing_date',
-        'sim_number',          // جدید
-        'sim_serial',          // جدید
+        'sim_number',
+        'sim_serial',
         'has_sim', 
         'status',
         'assigned_to_registration_id',

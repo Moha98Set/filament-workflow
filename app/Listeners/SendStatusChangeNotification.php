@@ -62,7 +62,7 @@ class SendStatusChangeNotification
             Notification::make()
                 ->info()
                 ->title('دستگاه جدید آماده نصب')
-                ->body("دستگاه {$registration->assignedDevice->code} برای {$registration->full_name} آماده نصب است")
+                ->body("دستگاه " . ($registration->assignedDevice?->serial_number ?? '—') . " برای {$registration->full_name} آماده نصب است")
                 ->icon('heroicon-o-wrench-screwdriver')
                 ->actions([
                     Action::make('view')

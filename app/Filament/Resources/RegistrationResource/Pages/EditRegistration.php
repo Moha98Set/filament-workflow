@@ -70,7 +70,18 @@ class EditRegistration extends EditRecord
             }
         }
 
-        $actions[] = Actions\DeleteAction::make();
+        $actions[] = Actions\DeleteAction::make()
+            ->before(function () {
+                if ($this->record->assigned_device_id) {
+                    $device = \App\Models\Device::find($this->record->assigned_device_id);
+                    if ($device) {
+                        $device->update([
+                            'status' => 'available',
+                            'assigned_to_registration_id' => null,
+                        ]);
+                    }
+                }
+            });
 
         return $actions;
     }

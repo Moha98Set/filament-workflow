@@ -33,6 +33,11 @@ class Registration extends Model
         'device_assigned_at',
         'assigned_device_id',
         'device_assignment_note',
+        'sim_activated',
+        'device_tested',
+        'preparation_approved_by',
+        'preparation_approved_at',
+        'preparation_note',
         
         // بخش نصاب
         'installer_id',
@@ -76,12 +81,19 @@ class Registration extends Model
         'payment_amount' => 'decimal:2',
         'is_returned' => 'boolean',
         'is_relocated' => 'boolean',
+        'sim_activated' => 'boolean',
+        'device_tested' => 'boolean',
+        'preparation_approved_at' => 'datetime',
     ];
 
     // ========================================
     // روابط
     // ========================================
 
+    public function preparationApprover()
+    {
+        return $this->belongsTo(User::class, 'preparation_approved_by');
+    }
     public function financialApprover(): BelongsTo
     {
         return $this->belongsTo(User::class, 'financial_approved_by');

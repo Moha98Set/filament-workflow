@@ -39,19 +39,27 @@ class ListRegistrations extends ListRecords
         }
 
         if ($user->hasRole(['super_admin', 'admin']) || $user->operator_tag === 'کارشناس فنی') {
-            $tabs['financial_approved'] = Tab::make('آماده اختصاص دستگاه')
-                ->icon('heroicon-o-check-circle')
+            $tabs['financial_approved'] = Tab::make('در انتظار اختصاص دستگاه')
+                ->icon('heroicon-o-cpu-chip')
                 ->badge(fn () => $this->getModel()::where('status', 'financial_approved')->count())
                 ->badgeColor('success')
                 ->modifyQueryUsing(fn ($query) => $query->where('status', 'financial_approved'));
         }
 
-        if ($user->hasRole(['super_admin', 'admin']) || $user->operator_tag === 'نصاب') {
-            $tabs['device_assigned'] = Tab::make('آماده نصب')
-                ->icon('heroicon-o-wrench-screwdriver')
+        if ($user->hasRole(['super_admin', 'admin']) || $user->operator_tag === 'کارشناس فنی') {
+            $tabs['device_assigned'] = Tab::make('منتظر آماده‌سازی')
+                ->icon('heroicon-o-clipboard-document-check')
                 ->badge(fn () => $this->getModel()::where('status', 'device_assigned')->count())
-                ->badgeColor('info')
+                ->badgeColor('warning')
                 ->modifyQueryUsing(fn ($query) => $query->where('status', 'device_assigned'));
+        }
+
+        if ($user->hasRole(['super_admin', 'admin']) || $user->operator_tag === 'نصاب') {
+            $tabs['ready_for_installation'] = Tab::make('آماده نصب')
+                ->icon('heroicon-o-wrench-screwdriver')
+                ->badge(fn () => $this->getModel()::where('status', 'ready_for_installation')->count())
+                ->badgeColor('info')
+                ->modifyQueryUsing(fn ($query) => $query->where('status', 'ready_for_installation'));
         }
 
         if ($user->hasRole(['super_admin', 'admin'])) {
