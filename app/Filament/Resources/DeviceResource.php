@@ -355,11 +355,42 @@ class DeviceResource extends Resource
                             ->rows(3),
                     ])
                     ->action(function (Device $record, array $data) {
+                        $oldStatus = $record->status;
+                        
                         $record->update([
                             'status' => $data['status'],
                             'notes' => $data['note'] ?? $record->notes,
                         ]);
-                        
+
+                        // اگه دستگاه معیوب یا مرجوع شد، مشتری مرتبط برگرده
+                        if (in_array($data['status'], ['faulty', 'maintenance', 'returned'])) {
+                            $registration = Registration::where('assigned_device_id', $record->id)->first();
+                            if ($registration) {
+                                $oldStatus = $registration->status;
+                                $registration->update([
+                                    'status' => 'financial_approved',
+                                    'assigned_device_id' => null,
+                                    'device_assigned_by' => null,
+                                    'device_assigned_at' => null,
+                                    'installer_id' => null,
+                                    'sim_activated' => false,
+                                    'device_tested' => false,
+                                    'preparation_approved_by' => null,
+                                    'preparation_approved_at' => null,
+                                    'installation_completed_at' => null,
+                                    'installation_note' => "دستگاه {$record->serial_number} از وضعیت {$oldStatus} به {$data['status']} تغییر کرد",
+                                ]);
+
+                                $record->update(['assigned_to_registration_id' => null]);
+
+                                Notification::make()
+                                    ->warning()
+                                    ->title("مشتری {$registration->full_name} به انتظار اختصاص دستگاه برگشت")
+                                    ->body("وضعیت قبلی: {$oldStatus}")
+                                    ->send();
+                            }
+                        }
+
                         Notification::make()
                             ->success()
                             ->title('وضعیت تغییر کرد')

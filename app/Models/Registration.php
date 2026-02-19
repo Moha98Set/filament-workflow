@@ -167,7 +167,8 @@ class Registration extends Model
             'ready_for_installation' => '🔧 آماده نصب',
             'installed' => '✅ نصب شده',
             'installation_failed' => '❌ نصب ناموفق',
-            'returned' => '↩️ مرجوع شده',
+            'relocation_requested' => 'درخواست جابجایی',
+            'relocation_requested' => '🔄 درخواست جابجایی',
             default => 'نامشخص',
         };
     }
@@ -182,6 +183,7 @@ class Registration extends Model
             'ready_for_installation' => 'primary',
             'installed' => 'success',
             'installation_failed' => 'danger',
+            'relocation_requested' => 'warning',
             'returned' => 'secondary',
             default => 'gray',
         };

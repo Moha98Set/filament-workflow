@@ -50,14 +50,56 @@ class RegistrationResource extends Resource
                                     ->label('شماره تلفن')
                                     ->tel()
                                     ->required()
-                                    ->maxLength(11),
-                                
+                                    ->maxLength(11)
+                                    ->minLength(11)
+                                    ->regex('/^09[0-9]{9}$/')
+                                    ->validationMessages([
+                                        'regex' => 'شماره تلفن باید با 09 شروع شود و 11 رقم باشد',
+                                        'min_length' => 'شماره تلفن باید 11 رقم باشد',
+                                    ])
+                                    ->extraInputAttributes([
+                                        'maxlength' => 11,
+                                        'oninput' => "this.value = this.value.replace(/[^0-9]/g, '').slice(0, 11);",
+                                        'onkeypress' => "
+                                            if (this.value.length >= 11 && !document.getElementById('limitToast')) {
+                                                var toast = document.createElement('div');
+                                                toast.id = 'limitToast';
+                                                toast.innerHTML = '<div style=\"display:flex;align-items:center;gap:12px;\"><span style=\"font-size:24px;\">⚠️</span><div><div style=\"font-weight:700;font-size:14px;margin-bottom:2px;\">محدودیت شماره تلفن</div><div style=\"font-size:12px;color:#666;\">حداکثر ۱۱ رقم مجاز است</div></div><button onclick=\"this.parentElement.parentElement.style.opacity=0;setTimeout(function(){document.getElementById(\\\\\"limitToast\\\\\").remove()},300)\" style=\"margin-right:auto;background:none;border:none;font-size:18px;cursor:pointer;color:#999;padding:4px 8px;\">✕</button></div>';
+                                                toast.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);background:white;padding:16px 24px;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,0.15);border-right:4px solid #f59e0b;z-index:99999;font-family:Vazirmatn,sans-serif;direction:rtl;opacity:0;transition:all 0.4s cubic-bezier(0.68,-0.55,0.265,1.55);min-width:300px;';
+                                                document.body.appendChild(toast);
+                                                requestAnimationFrame(function(){ toast.style.opacity='1'; toast.style.top='40px'; });
+                                                setTimeout(function(){ if(document.getElementById('limitToast')){ toast.style.opacity='0'; toast.style.top='20px'; setTimeout(function(){ if(document.getElementById('limitToast')) toast.remove(); },400); }}, 3000);
+                                            }
+                                        ",
+                                    ]),
+
                                 Forms\Components\TextInput::make('national_id')
                                     ->label('کد ملی')
                                     ->required()
                                     ->unique(ignoreRecord: true)
-                                    ->maxLength(10),
-                                
+                                    ->maxLength(10)
+                                    ->minLength(10)
+                                    ->regex('/^[0-9]{10}$/')
+                                    ->validationMessages([
+                                        'regex' => 'کد ملی باید 10 رقم باشد',
+                                        'min_length' => 'کد ملی باید 10 رقم باشد',
+                                    ])
+                                    ->extraInputAttributes([
+                                        'maxlength' => 10,
+                                        'oninput' => "this.value = this.value.replace(/[^0-9]/g, '').slice(0, 10);",
+                                        'onkeypress' => "
+                                            if (this.value.length >= 10 && !document.getElementById('limitToast2')) {
+                                                var toast = document.createElement('div');
+                                                toast.id = 'limitToast2';
+                                                toast.innerHTML = '<div style=\"display:flex;align-items:center;gap:12px;\"><span style=\"font-size:24px;\">⚠️</span><div><div style=\"font-weight:700;font-size:14px;margin-bottom:2px;\">محدودیت کد ملی</div><div style=\"font-size:12px;color:#666;\">حداکثر ۱۰ رقم مجاز است</div></div><button onclick=\"this.parentElement.parentElement.style.opacity=0;setTimeout(function(){document.getElementById(\\\\\"limitToast2\\\\\").remove()},300)\" style=\"margin-right:auto;background:none;border:none;font-size:18px;cursor:pointer;color:#999;padding:4px 8px;\">✕</button></div>';
+                                                toast.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);background:white;padding:16px 24px;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,0.15);border-right:4px solid #ef4444;z-index:99999;font-family:Vazirmatn,sans-serif;direction:rtl;opacity:0;transition:all 0.4s cubic-bezier(0.68,-0.55,0.265,1.55);min-width:300px;';
+                                                document.body.appendChild(toast);
+                                                requestAnimationFrame(function(){ toast.style.opacity='1'; toast.style.top='40px'; });
+                                                setTimeout(function(){ if(document.getElementById('limitToast2')){ toast.style.opacity='0'; toast.style.top='20px'; setTimeout(function(){ if(document.getElementById('limitToast2')) toast.remove(); },400); }}, 3000);
+                                            }
+                                        ",
+                                    ]),
+
                                 Forms\Components\Select::make('province')
                                     ->label('استان')
                                     ->required()
@@ -556,12 +598,22 @@ class RegistrationResource extends Resource
                     )
                     ->form([
                         Forms\Components\Toggle::make('sim_activated')
-                            ->label('سیمکارت فعال شده')
+                            ->label('سیمکارت سالم')
                             ->required()
                             ->accepted(),
 
                         Forms\Components\Toggle::make('device_tested')
-                            ->label('دستگاه تست شده')
+                            ->label('چراغ‌ها سالم')
+                            ->required()
+                            ->accepted(),
+
+                        Forms\Components\Toggle::make('final_test')
+                            ->label('تست نهایی')
+                            ->required()
+                            ->accepted(),
+
+                        Forms\Components\Toggle::make('server_changed')
+                            ->label('تغییر سرور')
                             ->required()
                             ->accepted(),
 
@@ -667,6 +719,218 @@ class RegistrationResource extends Resource
                             ->title("به {$installer->name} انتقال داده شد")
                             ->body("مشتری {$record->full_name} برای نصب به {$installer->name} اختصاص یافت")
                             ->send();
+                    }),
+                Tables\Actions\Action::make('handle_relocation')
+                    ->label('بررسی جابجایی')
+                    ->icon('heroicon-o-arrow-path')
+                    ->color('warning')
+                    ->visible(fn (Registration $record) => 
+                        $record->status === 'relocation_requested' && 
+                        auth()->user()->hasRole(['super_admin', 'admin'])
+                    )
+                    ->form([
+                        Forms\Components\Placeholder::make('request_info')
+                            ->label('اطلاعات درخواست')
+                            ->content(fn (Registration $record) => 
+                                "👤 متقاضی: {$record->full_name} | 📞 تلفن: {$record->phone} | 📱 دستگاه: " . ($record->assignedDevice?->serial_number ?? '—')
+                            ),
+
+                        Forms\Components\Placeholder::make('reason')
+                            ->label('دلیل درخواست نصاب')
+                            ->content(fn (Registration $record) => $record->installation_note ?? '—'),
+
+                        Forms\Components\Select::make('action_type')
+                            ->label('تصمیم')
+                            ->required()
+                            ->options([
+                                'swap' => '🔄 جابجایی متقابل (هر دو دستگاه دارن)',
+                                'transfer' => '➡️ انتقال دستگاه (به متقاضی بدون دستگاه)',
+                                'replace' => '🔧 جایگزینی معیوب (دستگاه سالم به متقاضی با دستگاه معیوب)',
+                                'reject' => '❌ رد درخواست و ادامه نصب',
+                            ])
+                            ->live()
+                            ->native(false),
+
+                        // هشدار برای حالت‌های ۲ و ۳
+                        Forms\Components\Placeholder::make('warning_transfer')
+                            ->label('')
+                            ->content('⚠️ توجه: متقاضی فعلی دستگاهش را از دست می‌دهد و به «در انتظار اختصاص دستگاه» برمی‌گردد.')
+                            ->visible(fn (Forms\Get $get) => in_array($get('action_type'), ['transfer', 'replace'])),
+
+                        // حالت ۱: جابجایی متقابل
+                        Forms\Components\Select::make('swap_registration_id')
+                            ->label('جابجایی با متقاضی (دستگاه‌دار)')
+                            ->searchable()
+                            ->required()
+                            ->options(function (Registration $record) {
+                                return Registration::whereIn('status', ['device_assigned', 'ready_for_installation'])
+                                    ->where('id', '!=', $record->id)
+                                    ->whereNotNull('assigned_device_id')
+                                    ->get()
+                                    ->mapWithKeys(fn ($reg) => [
+                                        $reg->id => "👤 {$reg->full_name} | 📱 {$reg->assignedDevice?->serial_number} | 📞 {$reg->phone}"
+                                    ]);
+                            })
+                            ->helperText('هر دو متقاضی دستگاه دارن و دستگاه‌ها جابجا می‌شن')
+                            ->visible(fn (Forms\Get $get) => $get('action_type') === 'swap')
+                            ->native(false),
+
+                        // حالت ۲: انتقال به بدون دستگاه
+                        Forms\Components\Select::make('transfer_registration_id')
+                            ->label('انتقال به متقاضی (بدون دستگاه)')
+                            ->searchable()
+                            ->required()
+                            ->options(function (Registration $record) {
+                                return Registration::where('status', 'financial_approved')
+                                    ->whereNull('assigned_device_id')
+                                    ->get()
+                                    ->mapWithKeys(fn ($reg) => [
+                                        $reg->id => "👤 {$reg->full_name} | 📞 {$reg->phone} | 🏙️ {$reg->city}"
+                                    ]);
+                            })
+                            ->helperText('متقاضی مقصد دستگاه ندارد — دستگاه فعلی به او منتقل می‌شود')
+                            ->visible(fn (Forms\Get $get) => $get('action_type') === 'transfer')
+                            ->native(false),
+
+                        // حالت ۳: جایگزینی معیوب
+                        Forms\Components\Select::make('replace_registration_id')
+                            ->label('جایگزینی با متقاضی (دستگاه معیوب)')
+                            ->searchable()
+                            ->required()
+                            ->options(function (Registration $record) {
+                                return Registration::whereIn('status', ['device_assigned', 'ready_for_installation'])
+                                    ->where('id', '!=', $record->id)
+                                    ->whereNotNull('assigned_device_id')
+                                    ->whereHas('assignedDevice', fn ($q) => $q->where('status', 'faulty'))
+                                    ->get()
+                                    ->mapWithKeys(fn ($reg) => [
+                                        $reg->id => "👤 {$reg->full_name} | 📱 {$reg->assignedDevice?->serial_number} (معیوب) | 📞 {$reg->phone}"
+                                    ]);
+                            })
+                            ->helperText('دستگاه سالم به این متقاضی می‌رود و دستگاه معیوبش به لیست معیوب‌ها منتقل می‌شود')
+                            ->visible(fn (Forms\Get $get) => $get('action_type') === 'replace')
+                            ->native(false),
+
+                        Forms\Components\Textarea::make('admin_note')
+                            ->label('یادداشت ادمین')
+                            ->rows(2)
+                            ->placeholder('توضیحات...')
+                            ->visible(fn (Forms\Get $get) => $get('action_type') !== null),
+                    ])
+                    ->modalHeading('بررسی درخواست جابجایی')
+                    ->modalSubmitActionLabel('اعمال تصمیم')
+                    ->modalWidth('lg')
+                    ->action(function (Registration $record, array $data) {
+                        $note = $data['admin_note'] ?? '';
+
+                        // حالت ۱: جابجایی متقابل
+                        if ($data['action_type'] === 'swap') {
+                            $toReg = Registration::find($data['swap_registration_id']);
+                            $fromDevice = $record->assignedDevice;
+                            $toDevice = $toReg->assignedDevice;
+
+                            $record->update([
+                                'assigned_device_id' => $toDevice->id,
+                                'status' => 'ready_for_installation',
+                                'installation_note' => "جابجایی متقابل با {$toReg->full_name} | " . $note,
+                            ]);
+                            $toReg->update([
+                                'assigned_device_id' => $fromDevice->id,
+                            ]);
+                            $fromDevice->update(['assigned_to_registration_id' => $toReg->id]);
+                            $toDevice->update(['assigned_to_registration_id' => $record->id]);
+
+                            Notification::make()
+                                ->success()
+                                ->title('جابجایی متقابل انجام شد')
+                                ->body("دستگاه {$fromDevice->serial_number} ↔ {$toDevice->serial_number} جابجا شد")
+                                ->send();
+
+                        // حالت ۲: انتقال دستگاه
+                        } elseif ($data['action_type'] === 'transfer') {
+                            $toReg = Registration::find($data['transfer_registration_id']);
+                            $device = $record->assignedDevice;
+
+                            // دستگاه به متقاضی جدید
+                            $toReg->update([
+                                'assigned_device_id' => $device->id,
+                                'device_assigned_by' => auth()->id(),
+                                'device_assigned_at' => now(),
+                                'status' => 'device_assigned',
+                            ]);
+                            $device->update(['assigned_to_registration_id' => $toReg->id]);
+
+                            // متقاضی اول برمیگرده به انتظار اختصاص
+                            $record->update([
+                                'assigned_device_id' => null,
+                                'device_assigned_by' => null,
+                                'device_assigned_at' => null,
+                                'installer_id' => null,
+                                'sim_activated' => false,
+                                'device_tested' => false,
+                                'preparation_approved_by' => null,
+                                'preparation_approved_at' => null,
+                                'status' => 'financial_approved',
+                                'installation_note' => "انتقال دستگاه به {$toReg->full_name} | " . $note,
+                            ]);
+
+                            Notification::make()
+                                ->success()
+                                ->title('انتقال دستگاه انجام شد')
+                                ->body("دستگاه {$device->serial_number} به {$toReg->full_name} منتقل شد. {$record->full_name} به انتظار اختصاص دستگاه برگشت.")
+                                ->send();
+
+                        // حالت ۳: جایگزینی معیوب
+                        } elseif ($data['action_type'] === 'replace') {
+                            $toReg = Registration::find($data['replace_registration_id']);
+                            $healthyDevice = $record->assignedDevice;
+                            $faultyDevice = $toReg->assignedDevice;
+
+                            // دستگاه معیوب به لیست معیوب‌ها
+                            $faultyDevice->update([
+                                'status' => 'faulty',
+                                'assigned_to_registration_id' => null,
+                            ]);
+
+                            // دستگاه سالم به متقاضی دوم
+                            $toReg->update([
+                                'assigned_device_id' => $healthyDevice->id,
+                            ]);
+                            $healthyDevice->update(['assigned_to_registration_id' => $toReg->id]);
+
+                            // متقاضی اول برمیگرده به انتظار اختصاص
+                            $record->update([
+                                'assigned_device_id' => null,
+                                'device_assigned_by' => null,
+                                'device_assigned_at' => null,
+                                'installer_id' => null,
+                                'sim_activated' => false,
+                                'device_tested' => false,
+                                'preparation_approved_by' => null,
+                                'preparation_approved_at' => null,
+                                'status' => 'financial_approved',
+                                'installation_note' => "جایگزینی معیوب: دستگاه به {$toReg->full_name} | دستگاه {$faultyDevice->serial_number} معیوب | " . $note,
+                            ]);
+
+                            Notification::make()
+                                ->success()
+                                ->title('جایگزینی معیوب انجام شد')
+                                ->body("دستگاه سالم {$healthyDevice->serial_number} به {$toReg->full_name}. دستگاه معیوب {$faultyDevice->serial_number} به لیست معیوب‌ها رفت. {$record->full_name} به انتظار اختصاص برگشت.")
+                                ->send();
+
+                        // رد درخواست
+                        } elseif ($data['action_type'] === 'reject') {
+                            $record->update([
+                                'status' => 'ready_for_installation',
+                                'installation_note' => ($record->installation_note ?? '') . ' | رد درخواست: ' . $note,
+                            ]);
+
+                            Notification::make()
+                                ->info()
+                                ->title('درخواست جابجایی رد شد')
+                                ->body("{$record->full_name} به حالت آماده نصب برگشت")
+                                ->send();
+                        }
                     }),
 
                 Tables\Actions\EditAction::make(),
