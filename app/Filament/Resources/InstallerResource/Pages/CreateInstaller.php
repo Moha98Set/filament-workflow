@@ -12,6 +12,7 @@ class CreateInstaller extends CreateRecord
     protected function mutateFormDataBeforeCreate(array $data): array
     {
         $data['operator_tag'] = 'نصاب';
+        $data['status'] = 'active';
         return $data;
     }
 

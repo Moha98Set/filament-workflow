@@ -1,0 +1,16 @@
+html, body {
+    direction: rtl !important;
+}
+
+.fi-layout {
+    direction: rtl !important;
+}
+
+.fi-sidebar {
+    right: 0 !important;
+    left: auto !important;
+}
+
+.fi-main {
+    direction: rtl !important;
+}
