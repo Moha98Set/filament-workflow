@@ -59,7 +59,7 @@ class ListRegistrations extends ListRecords
             },
             'status' => $record->status_label ?? $record->status,
             'device_serial' => $record->assignedDevice?->serial_number ?? '—',
-            'created_at' => $record->created_at?->format('Y/m/d') ?? '—',
+            'created_at' => \App\Helpers\JalaliHelper::toJalali($record->created_at),
             default => $record->{$key} ?? '—',
         };
     }

@@ -52,7 +52,7 @@ class ListDevices extends ListRecords
             },
             'has_sim' => $record->has_sim ? 'دارد' : 'ندارد',
             'customer' => $record->assignedToRegistration?->full_name ?? '—',
-            'created_at' => $record->created_at?->format('Y/m/d') ?? '—',
+            'created_at' => \App\Helpers\JalaliHelper::toJalali($record->created_at),
             default => $record->{$key} ?? '—',
         };
     }

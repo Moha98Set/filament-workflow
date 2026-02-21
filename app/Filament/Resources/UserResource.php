@@ -227,7 +227,7 @@ class UserResource extends Resource
                 
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('تاریخ ثبت')
-                    ->dateTime('Y/m/d H:i')
+                    ->formatStateUsing(fn ($state) => \App\Helpers\JalaliHelper::toJalali($state))
                     ->sortable()
                     ->toggleable(),
             ])

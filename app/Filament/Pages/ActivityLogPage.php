@@ -32,7 +32,7 @@ class ActivityLogPage extends Page implements HasTable
             ->columns([
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('تاریخ')
-                    ->dateTime('Y/m/d H:i')
+                    ->formatStateUsing(fn ($state) => \App\Helpers\JalaliHelper::toJalaliDateTime($state))
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('user.name')

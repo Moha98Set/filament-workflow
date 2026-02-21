@@ -380,7 +380,7 @@ class RegistrationResource extends Resource
                 
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('تاریخ ثبت')
-                    ->dateTime('Y/m/d')
+                    ->formatStateUsing(fn ($state) => \App\Helpers\JalaliHelper::toJalaliDateTime($state))
                     ->sortable(),
 
                 Tables\Columns\BadgeColumn::make('organization')

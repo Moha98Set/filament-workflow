@@ -64,7 +64,7 @@ class ListDeviceReports extends ListRecords
                 default => $record->assignedToRegistration?->organization ?? '—',
             },
             'creator' => $record->creator?->name ?? '—',
-            'created_at' => $record->created_at?->format('Y/m/d') ?? '—',
+            'created_at' => \App\Helpers\JalaliHelper::toJalali($record->created_at),
             default => $record->{$key} ?? '—',
         };
     }

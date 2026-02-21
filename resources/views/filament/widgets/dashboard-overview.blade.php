@@ -142,7 +142,7 @@
                                 @endphp
                                 <span class="badge" style="background:{{ $statusColor }}">{{ $statusLabel }}</span>
                             </td>
-                            <td style="color: #94a3b8; font-size: 12px;">{{ $reg->created_at->format('m/d H:i') }}</td>
+                            <td style="color: #94a3b8; font-size: 12px;">{{ \App\Helpers\JalaliHelper::toJalaliDateTime($reg->created_at) }}</td>
                         </tr>
                         @endforeach
                     </tbody>

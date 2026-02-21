@@ -140,7 +140,7 @@ class NewDeviceResource extends Resource
 
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('تاریخ ثبت')
-                    ->dateTime('Y/m/d H:i')
+                    ->formatStateUsing(fn ($state) => \App\Helpers\JalaliHelper::toJalali($state))
                     ->sortable()
                     ->toggleable()
                     ->since()
@@ -148,7 +148,7 @@ class NewDeviceResource extends Resource
 
                 Tables\Columns\TextColumn::make('updated_at')
                     ->label('تاریخ ویرایش')
-                    ->dateTime('Y/m/d H:i')
+                    ->formatStateUsing(fn ($state) => \App\Helpers\JalaliHelper::toJalali($state))
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])

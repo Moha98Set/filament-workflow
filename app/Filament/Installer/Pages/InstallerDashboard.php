@@ -79,7 +79,7 @@ class InstallerDashboard extends Page implements HasTable
 
                 TextColumn::make('installation_completed_at')
                     ->label('تاریخ نصب')
-                    ->dateTime('Y/m/d H:i')
+                    ->formatStateUsing(fn ($state) => \App\Helpers\JalaliHelper::toJalaliDateTime($state))
                     ->placeholder('—')
                     ->visible(fn () => $this->activeTab === 'installed'),
             ])

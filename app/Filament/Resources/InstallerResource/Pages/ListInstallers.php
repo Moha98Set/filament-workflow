@@ -52,7 +52,7 @@ class ListInstallers extends ListRecords
                 'chaharmahal' => 'چهارمحال و بختیاری', 'kohgiluyeh' => 'کهگیلویه و بویراحمد',
                 default => $record->province ?? '—',
             },
-            'cooperation_start_date' => $record->cooperation_start_date?->format('Y/m/d') ?? '—',
+            'cooperation_start_date' => \App\Helpers\JalaliHelper::toJalali($record->cooperation_start_date),
             'is_active' => $record->is_active ? 'فعال' : 'غیرفعال',
             default => $record->{$key} ?? '—',
         };

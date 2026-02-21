@@ -256,9 +256,9 @@ class DeviceResource extends Resource
                     ->toggleable()
                     ->default('—'),
                 
-                Tables\Columns\TextColumn::make('created_at')
-                    ->label('تاریخ ثبت')
-                    ->dateTime('Y/m/d H:i')
+                TextColumn::make('created_at')
+                    ->label('تاریخ ثبت‌نام')
+                    ->formatStateUsing(fn ($state) => \App\Helpers\JalaliHelper::toJalali($state))
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])

@@ -127,7 +127,7 @@ class ClientResource extends Resource
 
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('تاریخ ثبت‌نام')
-                    ->dateTime()
+                    ->formatStateUsing(fn ($state) => \App\Helpers\JalaliHelper::toJalaliDateTime($state))
                     ->sortable(),
             ])
             ->filters([

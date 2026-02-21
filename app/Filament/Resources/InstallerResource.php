@@ -183,7 +183,7 @@ class InstallerResource extends Resource
 
                 TextColumn::make('cooperation_start_date')
                     ->label('شروع همکاری')
-                    ->date('Y/m/d')
+                    ->formatStateUsing(fn ($state) => \App\Helpers\JalaliHelper::toJalaliDateTime($state))
                     ->sortable(),
 
                 TextColumn::make('installed_count')
