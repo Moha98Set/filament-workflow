@@ -4,22 +4,17 @@ namespace App\Http\Controllers;
 
 use App\Models\Registration;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class PaymentController extends Controller
 {
     private string $merchant;
-    private string $baseUrl = 'https://gateway.zibal.ir';
 
     public function __construct()
     {
         $this->merchant = config('services.zibal.merchant', 'zibal');
     }
 
-    /**
-     * شروع پرداخت — بعد از ثبت‌نام
-     */
     public function create(Request $request)
     {
         $registration = Registration::where('national_id', $request->national_id)
@@ -27,68 +22,111 @@ class PaymentController extends Controller
             ->firstOrFail();
 
         $tractorCount = is_array($registration->tractors) ? count($registration->tractors) : 1;
-        $amount = $tractorCount * 110000000; // ریال (۱۱ میلیون تومان)
+        $amount = $tractorCount * 110000000; // ریال
+
+        $parameters = [
+            'merchant' => $this->merchant,
+            'amount' => $amount,
+            'callbackUrl' => route('payment.callback'),
+            'description' => "پرداخت دستگاه ویرامپ — {$registration->full_name}",
+            'orderId' => "REG-{$registration->id}",
+        ];
 
         try {
-            $response = Http::post("{$this->baseUrl}/v1/request", [
-                'merchant' => $this->merchant,
-                'amount' => $amount,
-                'callbackUrl' => route('payment.callback'),
-                'description' => "پرداخت دستگاه ویرامپ — {$registration->full_name}",
-                'orderId' => "REG-{$registration->id}",
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, 'https://gateway.zibal.ir/v1/request');
+            curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+            curl_setopt($ch, CURLOPT_POST, 1);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($parameters));
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+
+            $result = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $curlError = curl_error($ch);
+            curl_close($ch);
+
+            Log::info('Zibal request', [
+                'params' => $parameters,
+                'response' => $result,
+                'httpCode' => $httpCode,
+                'curlError' => $curlError,
             ]);
 
-            $data = $response->json();
+            if ($curlError) {
+                return redirect()->route('payment.failed')
+                    ->with('error', 'خطا در اتصال به درگاه: ' . $curlError);
+            }
 
-            if ($data['result'] == 100) {
+            $data = json_decode($result, true);
+
+            if ($data && $data['result'] == 100) {
                 $registration->update([
-                    'payment_track_id' => $data['trackId'],
+                    'payment_track_id' => (string)$data['trackId'],
                     'payment_amount' => $amount,
                     'payment_status' => 'pending',
                     'payment_method' => 'online',
                 ]);
 
-                return redirect("{$this->baseUrl}/start/{$data['trackId']}");
+                return redirect("https://gateway.zibal.ir/start/{$data['trackId']}");
             }
 
-            Log::error('Zibal request failed', $data);
+            Log::error('Zibal request failed', ['data' => $data]);
             return redirect()->route('payment.failed')
-                ->with('error', 'خطا در اتصال به درگاه: ' . ($data['message'] ?? 'خطای نامشخص'));
+                ->with('error', 'خطا در ایجاد تراکنش: ' . ($data['message'] ?? 'خطای نامشخص'));
 
         } catch (\Exception $e) {
-            Log::error('Zibal connection error: ' . $e->getMessage());
+            Log::error('Zibal exception: ' . $e->getMessage());
             return redirect()->route('payment.failed')
                 ->with('error', 'خطا در اتصال به درگاه پرداخت');
         }
     }
 
-    /**
-     * Callback — بازگشت از درگاه
-     */
     public function callback(Request $request)
     {
         $trackId = $request->query('trackId');
         $success = $request->query('success');
         $status = $request->query('status');
 
-        $registration = Registration::where('payment_track_id', $trackId)->first();
+        Log::info('Zibal callback', [
+            'trackId' => $trackId,
+            'success' => $success,
+            'status' => $status,
+        ]);
+
+        $registration = Registration::where('payment_track_id', (string)$trackId)->first();
 
         if (!$registration) {
+            Log::error('Zibal callback: registration not found', ['trackId' => $trackId]);
             return redirect()->route('payment.failed')
                 ->with('error', 'تراکنش یافت نشد');
         }
 
         if ($success == 1) {
-            // Verify پرداخت
+            $parameters = [
+                'merchant' => $this->merchant,
+                'trackId' => $trackId,
+            ];
+
             try {
-                $response = Http::post("{$this->baseUrl}/v1/verify", [
-                    'merchant' => $this->merchant,
-                    'trackId' => $trackId,
-                ]);
+                $ch = curl_init();
+                curl_setopt($ch, CURLOPT_URL, 'https://gateway.zibal.ir/v1/verify');
+                curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+                curl_setopt($ch, CURLOPT_POST, 1);
+                curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($parameters));
+                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+                curl_setopt($ch, CURLOPT_TIMEOUT, 30);
 
-                $data = $response->json();
+                $result = curl_exec($ch);
+                curl_close($ch);
 
-                if ($data['result'] == 100 && $data['status'] == 1) {
+                $data = json_decode($result, true);
+
+                Log::info('Zibal verify response', ['data' => $data]);
+
+                if ($data && $data['result'] == 100) {
                     $registration->update([
                         'payment_status' => 'paid',
                         'payment_ref_number' => $data['refNumber'] ?? null,
@@ -101,27 +139,23 @@ class PaymentController extends Controller
                         ->with('amount', $registration->payment_amount);
                 }
 
-                // پرداخت شده ولی verify نشده
                 $registration->update(['payment_status' => 'unverified']);
-                Log::warning('Zibal verify failed', $data);
-
                 return redirect()->route('payment.failed')
-                    ->with('error', 'پرداخت تایید نشد. در صورت کسر وجه، طی ۷۲ ساعت به حساب شما برمی‌گردد.');
+                    ->with('error', 'پرداخت تایید نشد. کد وضعیت: ' . ($data['status'] ?? '—'));
 
             } catch (\Exception $e) {
-                Log::error('Zibal verify error: ' . $e->getMessage());
+                Log::error('Zibal verify exception: ' . $e->getMessage());
                 return redirect()->route('payment.failed')
                     ->with('error', 'خطا در تایید پرداخت');
             }
         }
 
-        // پرداخت ناموفق
         $statusMsg = match((int)$status) {
             -1 => 'در انتظار پرداخت',
             -2 => 'خطای داخلی',
             3 => 'لغو شده توسط کاربر',
             4 => 'شماره کارت نامعتبر',
-            default => 'پرداخت ناموفق',
+            default => 'پرداخت ناموفق (کد: ' . $status . ')',
         };
 
         $registration->update(['payment_status' => 'failed']);
