@@ -3,6 +3,7 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\DeviceResource\Pages;
+use App\Models\ActivityLog;
 use App\Models\Device;
 use App\Models\Registration;
 use Filament\Forms;
@@ -388,6 +389,7 @@ class DeviceResource extends Resource
                                     ->title("مشتری {$registration->full_name} به انتظار اختصاص دستگاه برگشت")
                                     ->body("وضعیت قبلی: {$oldStatus}")
                                     ->send();
+                                ActivityLog::log('status_change', "مشتری {$registration->full_name} به انتظار اختصاص برگشت — دستگاه {$record->serial_number} به {$data['status']}", $registration);
                             }
                         }
 
@@ -396,6 +398,7 @@ class DeviceResource extends Resource
                             ->title('وضعیت تغییر کرد')
                             ->body("وضعیت دستگاه {$record->serial_number} به‌روزرسانی شد")
                             ->send();
+                        ActivityLog::log('status_change', "تغییر وضعیت دستگاه {$record->serial_number} به {$data['status']} توسط " . auth()->user()->name, $record);
                     }),
                 
                 Tables\Actions\EditAction::make(),

@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 use App\Models\Device;
+use App\Models\ActivityLog;
 use App\Models\Registration;
 use Filament\Pages\Page;
 use Filament\Forms;
@@ -202,6 +203,8 @@ class AutoAssignDevices extends Page implements HasForms
         
         $this->assignedCount = $count;
         $this->showResult = true;
+
+        ActivityLog::log('auto_assign', "اختصاص خودکار {$count} دستگاه توسط " . auth()->user()->name, null, ['count' => $count]);
 
         $this->calculateStats();
 

@@ -3,6 +3,7 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\RegistrationResource\Pages;
+use App\Models\ActivityLog;
 use App\Models\Registration;
 use App\Models\Device;
 use App\Models\User;
@@ -505,6 +506,7 @@ class RegistrationResource extends Resource
                             ->success()
                             ->title('تایید مالی انجام شد')
                             ->send();
+                        ActivityLog::log('financial_approved', "تأیید مالی {$record->full_name} توسط " . auth()->user()->name, $record);
                     }),
                 
                 // اکشن رد مالی
@@ -530,6 +532,7 @@ class RegistrationResource extends Resource
                             ->danger()
                             ->title('درخواست رد شد')
                             ->send();
+                        ActivityLog::log('financial_rejected', "رد مالی {$record->full_name} توسط " . auth()->user()->name, $record);
                     }),
                 
                 // اکشن اختصاص دستگاه
@@ -585,6 +588,7 @@ class RegistrationResource extends Resource
                             ->success()
                             ->title('دستگاه اختصاص داده شد')
                             ->send();
+                        ActivityLog::log('device_assigned', "اختصاص دستگاه {$device->serial_number} به {$record->full_name} توسط " . auth()->user()->name, $record);
                     }),
 
                 Tables\Actions\Action::make('approve_preparation')
@@ -635,6 +639,7 @@ class RegistrationResource extends Resource
                             ->success()
                             ->title('دستگاه آماده انتقال به نصاب شد')
                             ->send();
+                        ActivityLog::log('preparation_approved', "تأیید آماده‌سازی {$record->full_name} توسط " . auth()->user()->name, $record);
                     }),
 
                 Tables\Actions\Action::make('report_faulty')
@@ -684,6 +689,7 @@ class RegistrationResource extends Resource
                             ->title('دستگاه معیوب گزارش شد')
                             ->body("دستگاه {$device?->serial_number} به معیوب‌ها منتقل شد و مشتری {$record->full_name} به انتظار اختصاص دستگاه برگشت")
                             ->send();
+                        ActivityLog::log('device_faulty', "دستگاه معیوب گزارش شد — مشتری: {$record->full_name}", $record);
                     }),
                 
                 Tables\Actions\Action::make('assign_installer')
@@ -719,6 +725,7 @@ class RegistrationResource extends Resource
                             ->title("به {$installer->name} انتقال داده شد")
                             ->body("مشتری {$record->full_name} برای نصب به {$installer->name} اختصاص یافت")
                             ->send();
+                        ActivityLog::log('device_transfer', "جابجایی: {$record->full_name} — نوع: {$data['action_type']}", $record);
                     }),
                 Tables\Actions\Action::make('handle_relocation')
                     ->label('بررسی جابجایی')

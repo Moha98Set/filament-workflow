@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\UserRegistrationController;
 use App\Http\Controllers\RegistrationController;
+use App\Http\Controllers\PaymentController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -72,7 +73,17 @@ Route::get('/test-auth', function () {
     return 'Not logged in ❌';
 })->middleware('web');
 
+// درگاه پرداخت
+Route::post('/payment/create', [PaymentController::class, 'create'])->name('payment.create');
+Route::get('/payment/callback', [PaymentController::class, 'callback'])->name('payment.callback');
 
+Route::get('/payment/success', function () {
+    return view('payment-success');
+})->name('payment.success');
+
+Route::get('/payment/failed', function () {
+    return view('payment-failed');
+})->name('payment.failed');
 
 /*
 |--------------------------------------------------------------------------

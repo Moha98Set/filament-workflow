@@ -3,6 +3,7 @@
 namespace App\Filament\Installer\Pages;
 
 use App\Models\Registration;
+use App\Models\ActivityLog;
 use Filament\Pages\Page;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -123,6 +124,7 @@ class InstallerDashboard extends Page implements HasTable
                             ->title('گزارش نصب ثبت شد')
                             ->body("نصب دستگاه برای {$record->full_name} ثبت شد")
                             ->send();
+                        ActivityLog::log('installation_report', "نصب دستگاه برای {$record->full_name} توسط " . auth()->user()->name, $record);
                     }),
 
                 Tables\Actions\Action::make('report_failed')
@@ -241,6 +243,7 @@ class InstallerDashboard extends Page implements HasTable
                                 ->title('دستگاه معیوب گزارش شد')
                                 ->body("دستگاه از {$record->full_name} جدا شد و مشتری به انتظار اختصاص دستگاه برگشت")
                                 ->send();
+                            ActivityLog::log('device_faulty', "گزارش خرابی توسط نصاب " . auth()->user()->name . " — مشتری: {$record->full_name}", $record);
 
                         } elseif ($data['failure_type'] === 'relocation_request') {
                             $record->update([
@@ -253,6 +256,7 @@ class InstallerDashboard extends Page implements HasTable
                                 ->title('درخواست جابجایی ثبت شد')
                                 ->body("درخواست جابجایی برای {$record->full_name} به ادمین ارسال شد. منتظر تأیید باشید.")
                                 ->send();
+                            ActivityLog::log('relocation_requested', "درخواست جابجایی توسط نصاب " . auth()->user()->name . " — مشتری: {$record->full_name}", $record);
                         }
                     }),
             ])

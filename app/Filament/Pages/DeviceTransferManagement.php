@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 use App\Models\Device;
+use App\Models\ActivityLog;
 use App\Models\Registration;
 use App\Models\User;
 use Filament\Pages\Page;
@@ -241,6 +242,7 @@ class DeviceTransferManagement extends Page implements HasForms
         $this->resultMessage = $message;
         $this->resultType = 'success';
         Notification::make()->success()->title('عملیات انجام شد')->body($message)->send();
+        ActivityLog::log('device_transfer', $message, null, ['type' => $this->transfer_type]);
     }
 
     private function notFound(): void

@@ -10,7 +10,6 @@ class RegistrationController extends Controller
     public function store(Request $request)
     {
         try {
-            // Validate incoming request
             $validated = $request->validate([
                 'province' => 'required|string',
                 'organization' => 'required|string',
@@ -22,9 +21,10 @@ class RegistrationController extends Controller
                 'village' => 'required|string|max:100',
                 'installation_address' => 'required|string',
                 'tractors' => 'required|array|min:1',
+                'payment_method' => 'required|in:online,transfer',
+                'contract_accepted' => 'required|in:1',
             ]);
 
-            // Map Persian organization values to ENUM values
             $organizationMap = [
                 'جهاد کشاورزی' => 'jihad',
                 'صنعت' => 'industry',
@@ -37,18 +37,14 @@ class RegistrationController extends Controller
                 return back()->with('error', 'سازمان انتخاب‌شده معتبر نیست.');
             }
 
-            // Process tractors data
             $tractors = [];
-
             foreach ($request->tractors as $index => $tractor) {
-
                 $tractorData = [
                     'system' => $tractor['system'] ?? null,
                     'type' => $tractor['type'] ?? null,
                     'cylinders' => $tractor['cylinders'] ?? null,
                 ];
 
-                // Upload green card file if exists
                 if ($request->hasFile("tractors.{$index}.green_card")) {
                     $file = $request->file("tractors.{$index}.green_card");
                     $filename = time() . '_' . $index . '_' . $file->getClientOriginalName();
@@ -59,10 +55,12 @@ class RegistrationController extends Controller
                 $tractors[] = $tractorData;
             }
 
-            // Create registration record
-            Registration::create([
+            $tractorCount = count($tractors);
+            $paymentAmount = $tractorCount * 110000000; // ریال
+
+            $registration = Registration::create([
                 'province' => $validated['province'],
-                'organization' => $organizationValue, // Save ENUM value
+                'organization' => $organizationValue,
                 'full_name' => $validated['full_name'],
                 'phone' => $validated['phone'],
                 'national_id' => $validated['national_id'],
@@ -72,18 +70,32 @@ class RegistrationController extends Controller
                 'installation_address' => $validated['installation_address'],
                 'tractors' => $tractors,
                 'status' => 'pending',
+                'payment_method' => $validated['payment_method'],
+                'payment_amount' => $paymentAmount,
+                'contract_accepted' => true,
+                'contract_accepted_at' => now(),
             ]);
+
+            // آپلود فیش بانکی
+            if ($request->hasFile('payment_receipt')) {
+                $file = $request->file('payment_receipt');
+                $path = $file->storeAs('payment-receipts', time() . '_' . $file->getClientOriginalName(), 'public');
+                $registration->update(['payment_receipt' => $path]);
+            }
+
+            // اگه پرداخت آنلاین → درگاه زیبال
+            if ($validated['payment_method'] === 'online') {
+                return app(PaymentController::class)->create(
+                    new Request(['national_id' => $registration->national_id])
+                );
+            }
 
             return redirect()
                 ->route('client.register.success')
                 ->with('success', 'ثبت‌نام شما با موفقیت انجام شد!');
 
         } catch (\Exception $e) {
-
-            return back()->with(
-                'error',
-                'خطا در ثبت اطلاعات: ' . $e->getMessage()
-            );
+            return back()->with('error', 'خطا در ثبت اطلاعات: ' . $e->getMessage());
         }
     }
 }
