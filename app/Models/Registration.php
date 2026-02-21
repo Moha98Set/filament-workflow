@@ -27,6 +27,13 @@ class Registration extends Model
         'payment_receipt',
         'payment_amount',
         'transaction_id',
+        'payment_method',
+        'payment_status',
+        'payment_track_id',
+        'payment_ref_number',
+        'payment_verified_at',
+        'contract_accepted',
+        'contract_accepted_at',
         
         // بخش فنی
         'device_assigned_by',
