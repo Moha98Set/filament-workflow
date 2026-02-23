@@ -4,6 +4,7 @@ use App\Http\Controllers\UserRegistrationController;
 use App\Http\Controllers\RegistrationController;
 use App\Http\Controllers\PaymentController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\LabelPdfController;
 
 /*
 |--------------------------------------------------------------------------
@@ -85,6 +86,10 @@ Route::get('/payment/failed', function () {
     return view('payment-failed');
 })->name('payment.failed');
 
+// pdf genrator
+Route::get('/admin/labels/pdf', [LabelPdfController::class, 'generate'])
+    ->name('labels.pdf')
+    ->middleware(['auth', 'verified']);
 /*
 |--------------------------------------------------------------------------
 | Auth Routes (Laravel Breeze - حذف شده)

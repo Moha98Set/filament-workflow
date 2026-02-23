@@ -24,6 +24,8 @@ class InstallerPanelProvider extends PanelProvider
             ->id('installer')
             ->path('installer')
             ->login()
+            ->databaseNotifications()
+            ->databaseNotificationsPolling('30s')
             ->authGuard('web')
             ->topNavigation()
             ->maxContentWidth('full')

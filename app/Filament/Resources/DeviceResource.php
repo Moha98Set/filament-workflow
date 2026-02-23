@@ -256,7 +256,7 @@ class DeviceResource extends Resource
                     ->toggleable()
                     ->default('—'),
                 
-                TextColumn::make('created_at')
+                Tables\Columns\TextColumn::make('created_at')
                     ->label('تاریخ ثبت‌نام')
                     ->formatStateUsing(fn ($state) => \App\Helpers\JalaliHelper::toJalali($state))
                     ->sortable()
@@ -297,112 +297,113 @@ class DeviceResource extends Resource
                     ->falseLabel('غیر مرجوعی'),
             ])            
             ->actions([
-                Tables\Actions\Action::make('assign_to_person')
-                    ->label('اختصاص به متقاضی')
-                    ->icon('heroicon-o-user-plus')
-                    ->color('success')
-                    ->visible(fn (Device $record) => $record->status === 'available' && $record->has_sim)
-                    ->form([
-                        Forms\Components\Select::make('registration_id')
-                            ->label('انتخاب متقاضی')
-                            ->options(
-                                Registration::where('status', 'financial_approved')
-                                    ->whereNull('assigned_device_id')
-                                    ->pluck('full_name', 'id')
-                            )
-                            ->searchable()
-                            ->required()
-                            ->helperText('فقط متقاضیان تایید مالی شده نمایش داده می‌شوند'),
-                    ])
-                    ->action(function (Device $record, array $data) {
-                        $registration = Registration::find($data['registration_id']);
-                        
-                        $record->update([
-                            'status' => 'assigned',
-                            'assigned_to_registration_id' => $registration->id,
-                        ]);
-                        
-                        $registration->update([
-                            'status' => 'device_assigned',
-                            'assigned_device_id' => $record->id,
-                            'device_assigned_by' => auth()->id(),
-                            'device_assigned_at' => now(),
-                        ]);
-                        
-                        Notification::make()
-                            ->success()
-                            ->title('دستگاه اختصاص داده شد')
-                            ->body("دستگاه {$record->serial_number} به {$registration->full_name} اختصاص یافت")
-                            ->send();
-                    }),
+                Tables\Actions\ActionGroup::make([
+                    Tables\Actions\Action::make('assign_to_person')
+                        ->label('اختصاص به متقاضی')
+                        ->icon('heroicon-o-user-plus')
+                        ->color('success')
+                        ->visible(fn (Device $record) => $record->status === 'available' && $record->has_sim)
+                        ->form([
+                            Forms\Components\Select::make('registration_id')
+                                ->label('انتخاب متقاضی')
+                                ->options(
+                                    Registration::where('status', 'financial_approved')
+                                        ->whereNull('assigned_device_id')
+                                        ->pluck('full_name', 'id')
+                                )
+                                ->searchable()
+                                ->required()
+                                ->helperText('فقط متقاضیان تایید مالی شده نمایش داده می‌شوند'),
+                        ])
+                        ->action(function (Device $record, array $data) {
+                            $registration = Registration::find($data['registration_id']);
+                            
+                            $record->update([
+                                'status' => 'assigned',
+                                'assigned_to_registration_id' => $registration->id,
+                            ]);
+                            
+                            $registration->update([
+                                'status' => 'device_assigned',
+                                'assigned_device_id' => $record->id,
+                                'device_assigned_by' => auth()->id(),
+                                'device_assigned_at' => now(),
+                            ]);
+                            
+                            Notification::make()
+                                ->success()
+                                ->title('دستگاه اختصاص داده شد')
+                                ->body("دستگاه {$record->serial_number} به {$registration->full_name} اختصاص یافت")
+                                ->send();
+                        }),
 
-                Tables\Actions\Action::make('change_status')
-                    ->label('تغییر وضعیت')
-                    ->icon('heroicon-o-arrow-path')
-                    ->color('warning')
-                    ->form([
-                        Forms\Components\Select::make('status')
-                            ->label('وضعیت جدید')
-                            ->options([
-                                'available' => '✅ موجود',
-                                'faulty' => '⚠️ معیوب',
-                                'maintenance' => '🔧 در تعمیر',
-                                'returned' => '↩️ مرجوع شده',
-                            ])
-                            ->required(),
-                        
-                        Forms\Components\Textarea::make('note')
-                            ->label('یادداشت')
-                            ->rows(3),
-                    ])
-                    ->action(function (Device $record, array $data) {
-                        $oldStatus = $record->status;
-                        
-                        $record->update([
-                            'status' => $data['status'],
-                            'notes' => $data['note'] ?? $record->notes,
-                        ]);
+                    Tables\Actions\Action::make('change_status')
+                        ->label('تغییر وضعیت')
+                        ->icon('heroicon-o-arrow-path')
+                        ->color('warning')
+                        ->form([
+                            Forms\Components\Select::make('status')
+                                ->label('وضعیت جدید')
+                                ->options([
+                                    'available' => '✅ موجود',
+                                    'faulty' => '⚠️ معیوب',
+                                    'maintenance' => '🔧 در تعمیر',
+                                    'returned' => '↩️ مرجوع شده',
+                                ])
+                                ->required(),
+                            
+                            Forms\Components\Textarea::make('note')
+                                ->label('یادداشت')
+                                ->rows(3),
+                        ])
+                        ->action(function (Device $record, array $data) {
+                            $oldStatus = $record->status;
+                            
+                            $record->update([
+                                'status' => $data['status'],
+                                'notes' => $data['note'] ?? $record->notes,
+                            ]);
 
-                        // اگه دستگاه معیوب یا مرجوع شد، مشتری مرتبط برگرده
-                        if (in_array($data['status'], ['faulty', 'maintenance', 'returned'])) {
-                            $registration = Registration::where('assigned_device_id', $record->id)->first();
-                            if ($registration) {
-                                $oldStatus = $registration->status;
-                                $registration->update([
-                                    'status' => 'financial_approved',
-                                    'assigned_device_id' => null,
-                                    'device_assigned_by' => null,
-                                    'device_assigned_at' => null,
-                                    'installer_id' => null,
-                                    'sim_activated' => false,
-                                    'device_tested' => false,
-                                    'preparation_approved_by' => null,
-                                    'preparation_approved_at' => null,
-                                    'installation_completed_at' => null,
-                                    'installation_note' => "دستگاه {$record->serial_number} از وضعیت {$oldStatus} به {$data['status']} تغییر کرد",
-                                ]);
+                            // اگه دستگاه معیوب یا مرجوع شد، مشتری مرتبط برگرده
+                            if (in_array($data['status'], ['faulty', 'maintenance', 'returned'])) {
+                                $registration = Registration::where('assigned_device_id', $record->id)->first();
+                                if ($registration) {
+                                    $oldStatus = $registration->status;
+                                    $registration->update([
+                                        'status' => 'financial_approved',
+                                        'assigned_device_id' => null,
+                                        'device_assigned_by' => null,
+                                        'device_assigned_at' => null,
+                                        'installer_id' => null,
+                                        'sim_activated' => false,
+                                        'device_tested' => false,
+                                        'preparation_approved_by' => null,
+                                        'preparation_approved_at' => null,
+                                        'installation_completed_at' => null,
+                                        'installation_note' => "دستگاه {$record->serial_number} از وضعیت {$oldStatus} به {$data['status']} تغییر کرد",
+                                    ]);
 
-                                $record->update(['assigned_to_registration_id' => null]);
+                                    $record->update(['assigned_to_registration_id' => null]);
 
-                                Notification::make()
-                                    ->warning()
-                                    ->title("مشتری {$registration->full_name} به انتظار اختصاص دستگاه برگشت")
-                                    ->body("وضعیت قبلی: {$oldStatus}")
-                                    ->send();
-                                ActivityLog::log('status_change', "مشتری {$registration->full_name} به انتظار اختصاص برگشت — دستگاه {$record->serial_number} به {$data['status']}", $registration);
+                                    Notification::make()
+                                        ->warning()
+                                        ->title("مشتری {$registration->full_name} به انتظار اختصاص دستگاه برگشت")
+                                        ->body("وضعیت قبلی: {$oldStatus}")
+                                        ->send();
+                                    ActivityLog::log('status_change', "مشتری {$registration->full_name} به انتظار اختصاص برگشت — دستگاه {$record->serial_number} به {$data['status']}", $registration);
+                                }
                             }
-                        }
 
-                        Notification::make()
-                            ->success()
-                            ->title('وضعیت تغییر کرد')
-                            ->body("وضعیت دستگاه {$record->serial_number} به‌روزرسانی شد")
-                            ->send();
-                        ActivityLog::log('status_change', "تغییر وضعیت دستگاه {$record->serial_number} به {$data['status']} توسط " . auth()->user()->name, $record);
-                    }),
-                
-                Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make()
+                            Notification::make()
+                                ->success()
+                                ->title('وضعیت تغییر کرد')
+                                ->body("وضعیت دستگاه {$record->serial_number} به‌روزرسانی شد")
+                                ->send();
+                            ActivityLog::log('status_change', "تغییر وضعیت دستگاه {$record->serial_number} به {$data['status']} توسط " . auth()->user()->name, $record);
+                        }),
+                    
+                    Tables\Actions\EditAction::make()->label('ویرایش'),
+                    Tables\Actions\DeleteAction::make()->label('حذف')
                     ->before(function (Device $record) {
                         // اگه دستگاه به مشتری اختصاص داده شده، مشتری رو برگردون به تأیید مالی
                         $registration = Registration::where('assigned_device_id', $record->id)->first();
@@ -416,9 +417,49 @@ class DeviceResource extends Resource
                         }
                     }),
             ])
+            ->icon('heroicon-o-ellipsis-vertical')
+            ->tooltip('عملیات')
+            ->color('gray'),
+            ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
+
+                    Tables\Actions\BulkAction::make('print_labels')
+                        ->label('چاپ لیبل PDF')
+                        ->icon('heroicon-o-printer')
+                        ->color('warning')
+                        ->action(function (\Illuminate\Database\Eloquent\Collection $records) {
+                            $invalid = $records->filter(function ($device) {
+                                return empty($device->serial_number)
+                                    || is_null($device->assigned_to_registration_id);
+                            });
+
+                            if ($invalid->isNotEmpty()) {
+                                $names = $invalid
+                                    ->pluck('serial_number')
+                                    ->map(fn($s) => $s ?: '(بدون سریال)')
+                                    ->join('، ');
+
+                                \Filament\Notifications\Notification::make()
+                                    ->danger()
+                                    ->title('خطا در چاپ لیبل')
+                                    ->body("این دستگاه‌ها سریال ندارند یا به متقاضی اختصاص نشده‌اند: {$names}")
+                                    ->persistent()
+                                    ->send();
+
+                                return;
+                            }
+
+                            $ids = $records->pluck('id')->join(',');
+
+                            \Filament\Notifications\Notification::make()
+                                ->success()
+                                ->title('لیبل‌ها آماده‌اند')
+                                ->body('<a href="' . route('labels.pdf', ['ids' => $ids]) . '" target="_blank" style="color:white;font-weight:bold;text-decoration:underline">📄 کلیک کنید برای دانلود PDF</a>')
+                                ->persistent()
+                                ->send();
+                        }),
                 ]),
             ])
             ->defaultSort('created_at', 'desc')

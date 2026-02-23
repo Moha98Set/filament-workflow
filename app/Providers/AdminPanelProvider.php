@@ -28,6 +28,8 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('admin')
             ->login()
+            ->databaseNotifications()
+            ->databaseNotificationsPolling('30s')
             ->sidebarFullyCollapsibleOnDesktop()
             ->colors([
                 'primary' => Color::Amber,
@@ -62,5 +64,6 @@ class AdminPanelProvider extends PanelProvider
                     ->group('تنظیمات')
                     ->visible(fn (): bool => auth()->check() && auth()->user()->can('manage_users')),
             ]);
+            
     }
 }

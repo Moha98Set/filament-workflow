@@ -20,7 +20,6 @@ class AutoAssignDevices extends Page implements HasForms
     protected static ?string $navigationLabel = 'اختصاص خودکار';
     protected static ?string $navigationIcon = 'heroicon-o-bolt';
     protected static ?int $navigationSort = 4;
-    protected static bool $shouldRegisterNavigation = false; //display:none
     protected static string $view = 'filament.pages.auto-assign-devices';
 
     public ?string $organization = null;

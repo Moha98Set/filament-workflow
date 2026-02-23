@@ -243,6 +243,8 @@ class DeviceTransferManagement extends Page implements HasForms
         $this->resultType = 'success';
         Notification::make()->success()->title('عملیات انجام شد')->body($message)->send();
         ActivityLog::log('device_transfer', $message, null, ['type' => $this->transfer_type]);
+        $admins = \App\Models\User::whereHas('roles', fn($q) => $q->whereIn('name', ['super_admin', 'admin']))->get();
+        foreach ($admins as $u) { \Filament\Notifications\Notification::make()->warning()->title('جابجایی دستگاه')->body($message)->icon('heroicon-o-arrow-path')->sendToDatabase($u); }
     }
 
     private function notFound(): void

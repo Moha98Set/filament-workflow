@@ -460,6 +460,7 @@ class RegistrationResource extends Resource
                 return $query;
             })
             ->actions([
+                Tables\Actions\ActionGroup::make([
                 // اکشن تایید مالی
                 Tables\Actions\Action::make('financial_approve')
                     ->label('تایید مالی')
@@ -507,6 +508,18 @@ class RegistrationResource extends Resource
                             ->title('تایید مالی انجام شد')
                             ->send();
                         ActivityLog::log('financial_approved', "تأیید مالی {$record->full_name} توسط " . auth()->user()->name, $record);
+                        // نوتیفیکیشن به کارشناس فنی و ادمین
+                        $techUsers = \App\Models\User::where('operator_tag', 'کارشناس فنی')
+                            ->orWhereHas('roles', fn($q) => $q->whereIn('name', ['super_admin', 'admin']))
+                            ->get();
+                        foreach ($techUsers as $user) {
+                            \Filament\Notifications\Notification::make()
+                                ->success()
+                                ->title('تأیید مالی جدید')
+                                ->body("{$record->full_name} — منتظر اختصاص دستگاه")
+                                ->icon('heroicon-o-check-circle')
+                                ->sendToDatabase($user);
+                        }
                     }),
                 
                 // اکشن رد مالی
@@ -533,6 +546,9 @@ class RegistrationResource extends Resource
                             ->title('درخواست رد شد')
                             ->send();
                         ActivityLog::log('financial_rejected', "رد مالی {$record->full_name} توسط " . auth()->user()->name, $record);
+                        //notif
+                        $admins = \App\Models\User::whereHas('roles', fn($q) => $q->whereIn('name', ['super_admin', 'admin']))->get();
+                        foreach ($admins as $u) { \Filament\Notifications\Notification::make()->danger()->title('رد مالی')->body("{$record->full_name}")->icon('heroicon-o-x-circle')->sendToDatabase($u); }
                     }),
                 
                 // اکشن اختصاص دستگاه
@@ -589,6 +605,18 @@ class RegistrationResource extends Resource
                             ->title('دستگاه اختصاص داده شد')
                             ->send();
                         ActivityLog::log('device_assigned', "اختصاص دستگاه {$device->serial_number} به {$record->full_name} توسط " . auth()->user()->name, $record);
+                        // نوتیفیکیشن به کارشناس فنی
+                        $techUsers = \App\Models\User::where('operator_tag', 'کارشناس فنی')
+                            ->orWhereHas('roles', fn($q) => $q->whereIn('name', ['super_admin', 'admin']))
+                            ->get();
+                        foreach ($techUsers as $user) {
+                            \Filament\Notifications\Notification::make()
+                                ->info()
+                                ->title('دستگاه اختصاص داده شد')
+                                ->body("{$record->full_name} — {$device->serial_number}")
+                                ->icon('heroicon-o-cpu-chip')
+                                ->sendToDatabase($user);
+                        }
                     }),
 
                 Tables\Actions\Action::make('approve_preparation')
@@ -640,6 +668,16 @@ class RegistrationResource extends Resource
                             ->title('دستگاه آماده انتقال به نصاب شد')
                             ->send();
                         ActivityLog::log('preparation_approved', "تأیید آماده‌سازی {$record->full_name} توسط " . auth()->user()->name, $record);
+                        // نوتیفیکیشن به نصاب‌ها
+                        $installers = \App\Models\User::where('operator_tag', 'نصاب')->where('is_active', true)->get();
+                        foreach ($installers as $installer) {
+                            \Filament\Notifications\Notification::make()
+                                ->success()
+                                ->title('دستگاه آماده نصب')
+                                ->body("{$record->full_name} — آماده انتقال به نصاب")
+                                ->icon('heroicon-o-wrench-screwdriver')
+                                ->sendToDatabase($installer);
+                        }
                     }),
 
                 Tables\Actions\Action::make('report_faulty')
@@ -690,6 +728,9 @@ class RegistrationResource extends Resource
                             ->body("دستگاه {$device?->serial_number} به معیوب‌ها منتقل شد و مشتری {$record->full_name} به انتظار اختصاص دستگاه برگشت")
                             ->send();
                         ActivityLog::log('device_faulty', "دستگاه معیوب گزارش شد — مشتری: {$record->full_name}", $record);
+                        //notif
+                        $admins = \App\Models\User::whereHas('roles', fn($q) => $q->whereIn('name', ['super_admin', 'admin']))->get();
+                        foreach ($admins as $u) { \Filament\Notifications\Notification::make()->danger()->title('دستگاه معیوب')->body("{$record->full_name}")->icon('heroicon-o-exclamation-triangle')->sendToDatabase($u); }
                     }),
                 
                 Tables\Actions\Action::make('assign_installer')
@@ -726,6 +767,16 @@ class RegistrationResource extends Resource
                             ->body("مشتری {$record->full_name} برای نصب به {$installer->name} اختصاص یافت")
                             ->send();
                         ActivityLog::log('device_transfer', "جابجایی: {$record->full_name} — نوع: {$data['action_type']}", $record);
+                        // نوتیفیکیشن به ادمین
+                        $admins = \App\Models\User::whereHas('roles', fn($q) => $q->whereIn('name', ['super_admin', 'admin']))->get();
+                        foreach ($admins as $admin) {
+                            \Filament\Notifications\Notification::make()
+                                ->warning()
+                                ->title('جابجایی انجام شد')
+                                ->body("{$record->full_name}")
+                                ->icon('heroicon-o-arrow-path')
+                                ->sendToDatabase($admin);
+                        }
                     }),
                 Tables\Actions\Action::make('handle_relocation')
                     ->label('بررسی جابجایی')
@@ -940,8 +991,10 @@ class RegistrationResource extends Resource
                         }
                     }),
 
-                Tables\Actions\EditAction::make(),
+                Tables\Actions\EditAction::make()->label('ویرایش'),
                 Tables\Actions\DeleteAction::make()
+                    ->label('حذف')
+                    ->color('danger')
                     ->before(function (Registration $record) {
                         if ($record->assigned_device_id) {
                             $device = \App\Models\Device::find($record->assigned_device_id);
@@ -953,6 +1006,7 @@ class RegistrationResource extends Resource
                             }
                         }
                     }),
+                ])
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([

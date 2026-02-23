@@ -5,6 +5,7 @@ namespace App\Filament\Installer\Pages;
 use App\Models\Registration;
 use App\Models\ActivityLog;
 use Filament\Pages\Page;
+use App\Models\InstallerRequest;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Tables\Columns\TextColumn;
@@ -125,6 +126,16 @@ class InstallerDashboard extends Page implements HasTable
                             ->body("نصب دستگاه برای {$record->full_name} ثبت شد")
                             ->send();
                         ActivityLog::log('installation_report', "نصب دستگاه برای {$record->full_name} توسط " . auth()->user()->name, $record);
+                        //notif
+                        $admins = \App\Models\User::whereHas('roles', fn($q) => $q->whereIn('name', ['super_admin', 'admin']))->get();
+                        foreach ($admins as $admin) {
+                            \Filament\Notifications\Notification::make()
+                                ->success()
+                                ->title('نصب انجام شد')
+                                ->body("{$record->full_name} توسط " . auth()->user()->name)
+                                ->icon('heroicon-o-check-badge')
+                                ->sendToDatabase($admin);
+                        }
                     }),
 
                 Tables\Actions\Action::make('report_failed')
@@ -167,40 +178,54 @@ class InstallerDashboard extends Page implements HasTable
                                     ->label('از متقاضی')
                                     ->disabled()
                                     ->dehydrated(false)
-                                    ->default(fn ($record) => $record?->full_name . ' | ' . $record?->phone),
+                                    ->default(fn ($record) => "👤 {$record?->full_name} | 📱 {$record?->assignedDevice?->serial_number} | 📞 {$record?->phone}"),
 
+                                Forms\Components\Select::make('relocation_type')
+                                    ->label('نوع جابجایی')
+                                    ->options([
+                                        'swap' => '🔄 جابجایی متقابل (تعویض دو دستگاه)',
+                                        'transfer' => '➡️ انتقال دستگاه به متقاضی بدون دستگاه',
+                                    ])
+                                    ->required()
+                                    ->live()
+                                    ->native(false),
+
+                                // جابجایی متقابل — فقط متقاضیانی که دستگاه دارن
                                 Forms\Components\Select::make('to_registration_id')
-                                    ->label('به متقاضی')
+                                    ->label('متقاضی مقصد (دارای دستگاه)')
                                     ->required()
                                     ->searchable()
                                     ->options(function ($record) {
-                                        $installer = auth()->user();
-
-                                        // متقاضی‌های هم‌استان و هم‌شهرستان که نصب نشده
-                                        $pending = Registration::where('installer_id', auth()->id())
+                                        return Registration::where('installer_id', auth()->id())
                                             ->whereIn('status', ['device_assigned', 'ready_for_installation'])
                                             ->where('id', '!=', $record->id)
-                                            ->get()
-                                            ->mapWithKeys(fn ($reg) => [
-                                                $reg->id => "👤 {$reg->full_name} | 📱 " . ($reg->assignedDevice?->serial_number ?? '—') . " | 📞 {$reg->phone}"
-                                            ]);
-
-                                        // متقاضی‌های هم‌استان و هم‌شهرستان که دستگاه معیوب دارن
-                                        $faulty = Registration::whereIn('status', ['device_assigned', 'ready_for_installation'])
-                                            ->where('id', '!=', $record->id)
                                             ->whereNotNull('assigned_device_id')
-                                            ->whereHas('assignedDevice', fn ($q) => $q->where('status', 'faulty'))
-                                            ->when($installer->province, fn ($q) => $q->where('province', $installer->province))
-                                            ->when($installer->city, fn ($q) => $q->where('city', $installer->city))
                                             ->get()
                                             ->mapWithKeys(fn ($reg) => [
-                                                $reg->id => "🔧 {$reg->full_name} | 📱 " . ($reg->assignedDevice?->serial_number ?? '—') . " (معیوب) | 📞 {$reg->phone}"
+                                                $reg->id => "👤 {$reg->full_name} | 📱 {$reg->assignedDevice?->serial_number} | 📞 {$reg->phone}"
                                             ]);
-
-                                        return $pending->merge($faulty);
                                     })
-                                    ->helperText('متقاضیان نصب‌نشده و متقاضیان با دستگاه معیوب (هم‌استان و هم‌شهرستان)')
-                                    ->native(false),
+                                    ->helperText('دستگاه این دو متقاضی با هم عوض می‌شود')
+                                    ->native(false)
+                                    ->visible(fn (Forms\Get $get) => $get('relocation_type') === 'swap'),
+
+                                // انتقال — فقط متقاضیانی که دستگاه ندارن
+                                Forms\Components\Select::make('to_registration_id')
+                                    ->label('متقاضی مقصد (بدون دستگاه)')
+                                    ->required()
+                                    ->searchable()
+                                    ->options(function ($record) {
+                                        return Registration::where('installer_id', auth()->id())
+                                            ->where('status', 'financial_approved')
+                                            ->whereNull('assigned_device_id')
+                                            ->get()
+                                            ->mapWithKeys(fn ($reg) => [
+                                                $reg->id => "👤 {$reg->full_name} | 🚫 بدون دستگاه | 📞 {$reg->phone}"
+                                            ]);
+                                    })
+                                    ->helperText('دستگاه از متقاضی مبدأ جدا شده و به این متقاضی منتقل می‌شود')
+                                    ->native(false)
+                                    ->visible(fn (Forms\Get $get) => $get('relocation_type') === 'transfer'),
 
                                 Forms\Components\Textarea::make('relocation_reason')
                                     ->label('دلیل جابجایی')
@@ -214,49 +239,44 @@ class InstallerDashboard extends Page implements HasTable
                     ->modalSubmitActionLabel('ثبت گزارش')
                     ->modalWidth('lg')
                     ->action(function (Registration $record, array $data) {
-                        if ($data['failure_type'] === 'device_faulty') {
-                            $device = $record->assignedDevice;
+                        // فقط درخواست ثبت میشه — تغییری در وضعیت نمیشه
+                        InstallerRequest::create([
+                            'installer_id' => auth()->id(),
+                            'registration_id' => $record->id,
+                            'device_id' => $record->assigned_device_id,
+                            'type' => $data['failure_type'] === 'device_faulty' ? 'faulty' : 'relocation',
+                            'description' => $data['failure_type'] === 'device_faulty'
+                                ? ($data['fault_reason'] ?? '')
+                                : "نوع: " . ($data['relocation_type'] === 'swap' ? 'جابجایی متقابل' : 'انتقال')
+                                  . " | مقصد: " . (Registration::find($data['swap_to_registration_id'] ?? $data['transfer_to_registration_id'] ?? null)?->full_name ?? '—')
+                                  . " | دلیل: " . ($data['relocation_reason'] ?? ''),
+                            'photo' => $data['fault_photo'] ?? null,
+                            'status' => 'pending',
+                        ]);
 
-                            if ($device) {
-                                $device->update([
-                                    'status' => 'faulty',
-                                    'notes' => 'گزارش نصاب: ' . $data['fault_reason'],
-                                    'assigned_to_registration_id' => null,
-                                ]);
-                            }
+                        $typeLabel = $data['failure_type'] === 'device_faulty' ? 'معیوبی' : 'جابجایی';
 
-                            $record->update([
-                                'status' => 'financial_approved',
-                                'assigned_device_id' => null,
-                                'device_assigned_by' => null,
-                                'device_assigned_at' => null,
-                                'installer_id' => null,
-                                'sim_activated' => false,
-                                'device_tested' => false,
-                                'preparation_approved_by' => null,
-                                'preparation_approved_at' => null,
-                                'installation_note' => 'خرابی دستگاه: ' . $data['fault_reason'],
-                            ]);
+                        Notification::make()
+                            ->warning()
+                            ->title("درخواست {$typeLabel} ثبت شد")
+                            ->body('لطفاً منتظر بررسی و تأیید کارشناسان باشید')
+                            ->send();
 
-                            Notification::make()
-                                ->danger()
-                                ->title('دستگاه معیوب گزارش شد')
-                                ->body("دستگاه از {$record->full_name} جدا شد و مشتری به انتظار اختصاص دستگاه برگشت")
-                                ->send();
-                            ActivityLog::log('device_faulty', "گزارش خرابی توسط نصاب " . auth()->user()->name . " — مشتری: {$record->full_name}", $record);
+                        ActivityLog::log(
+                            $data['failure_type'] === 'device_faulty' ? 'device_faulty' : 'relocation_requested',
+                            "درخواست {$typeLabel} توسط نصاب " . auth()->user()->name . " — مشتری: {$record->full_name}",
+                            $record
+                        );
 
-                        } elseif ($data['failure_type'] === 'relocation_request') {
-                            $record->update([
-                                'status' => 'relocation_requested',
-                                'installation_note' => 'درخواست جابجایی: ' . $data['relocation_reason'],
-                            ]);
-
-                            Notification::make()
+                        // نوتیفیکیشن به ادمین
+                        $admins = \App\Models\User::whereHas('roles', fn($q) => $q->whereIn('name', ['super_admin', 'admin']))->get();
+                        foreach ($admins as $admin) {
+                            \Filament\Notifications\Notification::make()
                                 ->warning()
-                                ->title('درخواست جابجایی ثبت شد')
-                                ->body("درخواست جابجایی برای {$record->full_name} به ادمین ارسال شد. منتظر تأیید باشید.")
-                                ->send();
-                            ActivityLog::log('relocation_requested', "درخواست جابجایی توسط نصاب " . auth()->user()->name . " — مشتری: {$record->full_name}", $record);
+                                ->title("درخواست جدید: {$typeLabel}")
+                                ->body("{$record->full_name} — نصاب: " . auth()->user()->name)
+                                ->icon('heroicon-o-bell-alert')
+                                ->sendToDatabase($admin);
                         }
                     }),
             ])

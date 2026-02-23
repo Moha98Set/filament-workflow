@@ -7,6 +7,7 @@
     "license": "MIT",
     "require": {
         "php": "^8.2",
+        "barryvdh/laravel-dompdf": "^3.1",
         "filament/filament": "^3.0",
         "hekmatinasser/verta": "^8.5",
         "laravel/framework": "^12.0",
@@ -14,6 +15,7 @@
         "laravel/tinker": "^2.10.1",
         "maatwebsite/excel": "^3.1",
         "phpoffice/phpspreadsheet": "^1.30",
+        "picqer/php-barcode-generator": "^3.2",
         "spatie/laravel-permission": "^6.24",
         "tightenco/ziggy": "^2.0"
     },
